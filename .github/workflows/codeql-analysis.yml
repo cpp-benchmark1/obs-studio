@@ -38,11 +38,16 @@ jobs:
     - if: matrix.build-mode == 'manual'
       shell: bash
       run: |
-        sudo apt-get install -y build-essential ccache clang clang-format cmake cmake-curses-gui curl fdkaac fonts-noto fonts-roboto git glslang-dev glslang-tools glslc libasio-dev libasound2-dev libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libcmocka-dev libcurl4-openssl-dev libdrm-dev libfdk-aac-dev libfontconfig-dev libfreetype6-dev libgl1-mesa-dev libgles2-mesa libgles2-mesa-dev libglu1-mesa-dev libglvnd-dev libjack-jackd2-dev libjansson-dev libluajit-5.1-dev libmbedtls-dev libpci-dev libpulse-dev libqrcodegencpp-dev libqt6svg6-dev librist-dev libshaderc-dev libsndio-dev libspeexdsp-dev libsrt-openssl-dev libswresample-dev libswscale-dev libudev-dev libv4l-dev libva-dev libvlc-dev libvpl-dev libwayland-dev libwebsocketpp-dev libx11-dev libx11-xcb-dev libx264-dev libxaw7-dev libxcb1-dev libxcb-composite0-dev libxcb-icccm4-dev libxcb-keysyms1-dev libxcb-randr0-dev libxcb-shm0-dev libxcb-util-dev libxcb-xfixes0-dev libxcb-xinerama0-dev libxcb-xinput-dev libxcb-xkb-dev libxcb-xtest0-dev libxcomposite-dev libxinerama-dev libxkbcommon-x11-dev libxkbfile-dev libxres-dev libxss-dev libxtst-dev libxv-dev ninja-build nlohmann-json3-dev pkg-config python3-dev qt6-base-dev qt6-base-private-dev qt6-image-formats-plugins qt6-wayland swig zsh
-        sudo apt install libnoise-dev libxkbcommon-x11-0 libxkbcommon-dev v4l2loopback-dkms ffmpeg cmake ninja-build pkg-config clang clang-format build-essential curl ccache git zsh
+        sudo apt install libssl-dev libnoise-dev libxkbcommon-x11-0 libxkbcommon-dev v4l2loopback-dkms ffmpeg cmake ninja-build pkg-config clang clang-format build-essential curl ccache git zsh
         sudo apt install libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswresample-dev libswscale-dev libx264-dev libcurl4-openssl-dev libmbedtls-dev libgl1-mesa-dev libjansson-dev libluajit-5.1-dev python3-dev libx11-dev libxcb-randr0-dev libxcb-shm0-dev libxcb-xinerama0-dev libxcb-composite0-dev libxcomposite-dev libxinerama-dev libxcb1-dev libx11-xcb-dev libxcb-xfixes0-dev swig libcmocka-dev libxss-dev libglvnd-dev libgles2-mesa-dev libwayland-dev librist-dev libsrt-openssl-dev libpci-dev libpipewire-0.3-dev libqrcodegencpp-dev uthash-dev
         sudo apt install libasound2-dev libfdk-aac-dev libfontconfig-dev libfreetype6-dev libjack-jackd2-dev libpulse-dev libsndio-dev libspeexdsp-dev libudev-dev libv4l-dev libva-dev libvlc-dev libvpl-dev libdrm-dev nlohmann-json3-dev libwebsocketpp-dev libasio-dev
         sudo apt install qt6-base-dev qt6-base-private-dev qt6-svg-dev qt6-wayland qt6-image-formats-plugins
+        git clone --recursive https://github.com/paullouisageneau/libdatachannel
+        cd libdatachannel/
+        cmake -B build -DUSE_GNUTLS=0 -DUSE_NICE=0 -DCMAKE_BUILD_TYPE=Release
+        cd build/ && make
+        sudo make install
+        cd ../..
         cmake -B build -DENABLE_NEW_MPEGTS_OUTPUT=false -DENABLE_AJA=false -DENABLE_NVENC=false -DENABLE_FFMPEG_NVENC=false -DENABLE_BROWSER=false
         cmake --build build -t libobs
     - name: Free disk space
