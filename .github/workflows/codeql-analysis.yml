@@ -48,7 +48,7 @@ jobs:
         cd build/ && make
         sudo make install
         cd ../..
-        cmake -B build -DENABLE_NEW_MPEGTS_OUTPUT=false -DENABLE_AJA=false -DENABLE_NVENC=false -DENABLE_FFMPEG_NVENC=false -DENABLE_BROWSER=false
+        cmake -B build -D-DOBS_VERSION_OVERRIDE=001 -DENABLE_NEW_MPEGTS_OUTPUT=false -DENABLE_AJA=false -DENABLE_NVENC=false -DENABLE_FFMPEG_NVENC=false -DENABLE_BROWSER=false
         cmake --build build -t libobs
     - name: Free disk space
       run: |
