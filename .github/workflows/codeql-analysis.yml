@@ -39,8 +39,7 @@ jobs:
       shell: bash
       run: |
         sudo apt install cmake ninja-build pkg-config clang clang-format build-essential curl ccache git zsh
-        cmake -B build -DENABLE_NEW_MPEGTS_OUTPUT=false
-        cmake --build build
+        zsh .github/scripts/.build.zsh
     - name: Free disk space
       run: |
           sudo docker rmi $(docker image ls -aq) >/dev/null 2>&1 || true
