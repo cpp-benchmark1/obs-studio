@@ -30,11 +30,6 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: 'recursive'
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
-      with:
-        languages: ${{ matrix.language }}
-        build-mode: ${{ matrix.build-mode }}
     - if: matrix.build-mode == 'manual'
       shell: bash
       run: |
@@ -50,7 +45,7 @@ jobs:
         cd build/ && make
         sudo make install
         cd ../..
-
+        
         echo 'Building rnnoise'
         git clone --recursive https://github.com/xiph/rnnoise
         cd rnnoise
@@ -59,7 +54,14 @@ jobs:
         make
         sudo make install
         cd ..
-        
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        build-mode: ${{ matrix.build-mode }}
+    - if: matrix.build-mode == 'manual'
+      shell: bash
+      run: |
         cmake -B build -D-DOBS_VERSION_OVERRIDE=001 -DENABLE_NEW_MPEGTS_OUTPUT=false -DENABLE_AJA=false -DENABLE_NVENC=false -DENABLE_FFMPEG_NVENC=false -DENABLE_BROWSER=false
         cmake --build build -t libobs
     - name: Free disk space
