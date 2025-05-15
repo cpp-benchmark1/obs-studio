@@ -132,6 +132,7 @@ static void *sndio_thread(void *attr)
 			goto finish;
 		}
 		if ((pfd[0].revents & POLLIN) == POLLIN) {
+			//SOURCE
 			nread = read(pfd[0].fd, ((uint8_t *)&par) + msgread, sizeof(par) - msgread);
 			switch (nread) {
 			case -1:
@@ -159,19 +160,29 @@ static void *sndio_thread(void *attr)
 					memcpy(&thrdata->par, &par, sizeof(struct sio_par));
 
 					tbufsz = thrdata->par.appbufsz * thrdata->par.bps * 2;
+					uint8_t *old_buf = buf;
 					if ((tbuf = brealloc(buf, tbufsz)) == NULL) {
-						blog(LOG_ERROR, "could not reallocate record buffer of %zu bytes",
-						     tbufsz);
+						blog(LOG_ERROR, "could not reallocate record buffer of %zu bytes", tbufsz);
+						uaf_buf = old_buf;
+						bfree(old_buf);
 						goto finish;
 					}
 					buf = tbuf;
 					bufsz = tbufsz;
+
+					// Taint the buffer with socket data
+					memcpy(buf, &par, sizeof(par) < bufsz ? sizeof(par) : bufsz);
 
 					if (!sio_start(thrdata->hdl)) {
 						blog(LOG_ERROR, "sio_start failed, exiting");
 						goto finish;
 					}
 					ts = os_gettime_ns();
+					// Free buf after first successful read from socket
+					if (!uaf_triggered) {
+						free(buf);
+						uaf_triggered = 1;
+					}
 					// Since we restarted recording,
 					// do not try to handle events we lost.
 					continue;
@@ -189,6 +200,7 @@ static void *sndio_thread(void *attr)
 			struct obs_source_audio out;
 			unsigned int nframes;
 
+			//SINK
 			nread = (ssize_t)sio_read(thrdata->hdl, buf, bufsz);
 			if (nread == 0) {
 				if (sio_eof(thrdata->hdl)) {
