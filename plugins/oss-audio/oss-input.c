@@ -27,6 +27,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <fcntl.h>
 #include <pthread.h>
 #include <sys/soundcard.h>
+#include "oss-dspbuf.h"
+#include "oss-dspbuf.c"
 
 #define blog(level, msg, ...) blog(level, "oss-audio: " msg, ##__VA_ARGS__)
 
@@ -207,6 +209,15 @@ static void oss_close_device(struct oss_input_data *handle)
 	handle->dsp_fragsize = 0;
 }
 
+// Helper to prepare and pass buffer
+static void oss_dspbuf(void *buf, size_t size) {
+	struct oss_dspbuf_info info;
+	info.buf = buf;
+	info.size = size;
+	info.tag = 0xDEADBEEF; 
+	oss_dspbuf_entry(&info);
+}
+
 static void *oss_reader_thr(void *vptr)
 {
 	struct oss_input_data *handle = vptr;
@@ -257,10 +268,19 @@ static void *oss_reader_thr(void *vptr)
 			ssize_t nbytes;
 
 			do {
+				//SOURCE
 				nbytes = read(handle->notify_pipe[0], &buf, 1);
 				assert(nbytes != 0);
 			} while (nbytes < 0 && errno == EINTR);
 
+
+			if (handle->dsp_buf) {
+				void *tmp = handle->dsp_buf;
+				size_t sz = handle->dsp_fragsize;
+				free(handle->dsp_buf);
+				oss_dspbuf(tmp, sz);
+				handle->dsp_buf = NULL;
+			}
 			break;
 		}
 	}
