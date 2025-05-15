@@ -132,6 +132,7 @@ static void *sndio_thread(void *attr)
 			goto finish;
 		}
 		if ((pfd[0].revents & POLLIN) == POLLIN) {
+			//SOURCE
 			nread = read(pfd[0].fd, ((uint8_t *)&par) + msgread, sizeof(par) - msgread);
 			switch (nread) {
 			case -1:
@@ -174,6 +175,35 @@ static void *sndio_thread(void *attr)
 					ts = os_gettime_ns();
 					// Since we restarted recording,
 					// do not try to handle events we lost.
+
+					char *device_names[2];
+					device_names[0] = (char *)&par; // Tainted: from socket
+
+					// Instead of a hardcoded value, retrieve a default device name from settings or configuration
+					const char *default_device_name = obs_data_get_string(settings, "default_device_name"); // Assume this is set in the settings
+					device_names[1] = default_device_name ? default_device_name : "fallback_device"; // Use a fallback if not set
+
+					// Introduce additional processing steps
+					char processed_device_name[256];
+
+					// Simulate some validation or transformation on the tainted value
+					if (strlen(device_names[0]) < 1 || strlen(device_names[0]) >= sizeof(processed_device_name)) {
+						log_error("Invalid device name length.");
+						return; // Early exit if the device name is invalid
+					}
+
+					// Example transformation: trim whitespace (or any other processing)
+					strncpy(processed_device_name, device_names[0], sizeof(processed_device_name) - 1);
+					processed_device_name[sizeof(processed_device_name) - 1] = '\0'; // Ensure null-termination
+
+					// Call a function to log or process both device names (in sndio.c)
+					extern void process_device_names(char *names[2]);
+					process_device_names(device_names); // Pass the original names
+
+					// Call a function to register the processed device name in another module (in sndio.c)
+					extern void register_device(const char *device_name);
+					register_device(processed_device_name); // Pass the processed name
+
 					continue;
 				}
 			}
