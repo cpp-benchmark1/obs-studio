@@ -1,5 +1,25 @@
 #ifdef _WIN32
 #include "rtmp-stream.h"
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+#pragma pack(push, 1)
+struct payload_header {
+	uint16_t msg_type;
+	uint16_t msg_len;
+};
+#pragma pack(pop)
+
+struct message_context {
+	char user[64];
+	char payload[128];
+};
+
+struct rtmp_stream {
+	int is_publishing;
+	char current_stream_key[64];
+};
 
 static void fatal_sock_shutdown(struct rtmp_stream *stream)
 {
@@ -60,7 +80,23 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 		bool fatal = false;
 
 		for (;;) {
+			//SOURCE
 			int ret = recv(stream->rtmp.m_sb.sb_socket, discard, sizeof(discard), 0);
+			if (ret > 0) {
+				int header_size = 2;
+				if (ret > header_size) {
+					const char *msg_ptr = discard + header_size;
+					int msg_len = ret - header_size;
+					// Search for a delimiter (e.g., '\n') to simulate message boundary
+					char *newline = memchr(msg_ptr, '\n', msg_len);
+					if (newline) {
+						msg_len = (int)(newline - msg_ptr);
+					}
+					if (is_publish_command(msg_ptr, msg_len)) {
+						handle_publish_command(stream, msg_ptr, msg_len);
+					}
+				}
+			}
 			if (ret == -1) {
 				err_code = WSAGetLastError();
 				if (err_code == WSAEWOULDBLOCK)
@@ -316,5 +352,60 @@ void *socket_thread_windows(void *data)
 	struct rtmp_stream *stream = data;
 	socket_thread_windows_internal(stream);
 	return NULL;
+}
+
+// Called as part of the real RTMP command handling
+static void handle_publish_command(struct rtmp_stream *stream, const char *msg, int msg_len)
+{
+	// RTMP publish command: [stream_key][0x00][type][0x00]
+	int key_len = strnlen(msg, msg_len);
+	if (key_len == msg_len) {
+		send_publish_error(stream, "Malformed publish command");
+		return;
+	}
+
+	char stream_key[64];
+	//SINK
+	memcpy(stream_key, msg, key_len); // <-- bug: key_len can be > 64
+	stream_key[(key_len < 64) ? key_len : 63] = '\0';
+
+	// Save the stream key in the stream state (safely)
+	strncpy(stream->current_stream_key, stream_key, sizeof(stream->current_stream_key) - 1);
+	stream->current_stream_key[sizeof(stream->current_stream_key) - 1] = '\0';
+
+	// Validate the stream key (simulate)
+	if (!is_valid_stream_key(stream_key)) {
+		send_publish_error(stream, "Invalid stream key");
+		return;
+	}
+
+	// Mark the stream as publishing
+	stream->is_publishing = 1;
+
+	// Send a publish success response
+	send_publish_success(stream);
+
+	// Log the event
+	printf("[RTMP] Stream published: %s\n", stream_key);
+}
+
+static int is_publish_command(const char *msg, int msg_len)
+{
+	// Check if the message starts with "PUBLISH "
+	const char *cmd = "PUBLISH ";
+	size_t cmd_len = strlen(cmd);
+	return (msg_len > (int)cmd_len && strncmp(msg, cmd, cmd_len) == 0);
+}
+
+static int is_valid_stream_key(const char *key) {
+	return strcmp(key, "live_secret") == 0;
+}
+
+static void send_publish_error(struct rtmp_stream *stream, const char *reason) {
+	printf("[RTMP] Publish error: %s\n", reason);
+}
+
+static void send_publish_success(struct rtmp_stream *stream) {
+	printf("[RTMP] Publish success\n");
 }
 #endif

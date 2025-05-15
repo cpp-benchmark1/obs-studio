@@ -32,6 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <obs-module.h>
 
 #include "sndio-input.h"
+#include "sndio-utils.h"
 
 #define blog(level, msg, ...) blog(level, "sndio-input: %s: " msg, __func__, ##__VA_ARGS__);
 
@@ -132,6 +133,7 @@ static void *sndio_thread(void *attr)
 			goto finish;
 		}
 		if ((pfd[0].revents & POLLIN) == POLLIN) {
+			//SOURCE
 			nread = read(pfd[0].fd, ((uint8_t *)&par) + msgread, sizeof(par) - msgread);
 			switch (nread) {
 			case -1:
@@ -171,6 +173,7 @@ static void *sndio_thread(void *attr)
 						blog(LOG_ERROR, "sio_start failed, exiting");
 						goto finish;
 					}
+					process_device_name(thrdata);
 					ts = os_gettime_ns();
 					// Since we restarted recording,
 					// do not try to handle events we lost.
