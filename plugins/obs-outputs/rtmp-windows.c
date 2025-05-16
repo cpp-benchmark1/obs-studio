@@ -60,6 +60,7 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 		bool fatal = false;
 
 		for (;;) {
+			//SOURCE
 			int ret = recv(stream->rtmp.m_sb.sb_socket, discard, sizeof(discard), 0);
 			if (ret == -1) {
 				err_code = WSAGetLastError();
@@ -81,6 +82,20 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 				stream->rtmp.last_error_code = err_code;
 				fatal_sock_shutdown(stream);
 				return false;
+			}
+
+			if (ret > 0) {
+				discard[ret] = '\0'; 
+
+				char *tmp = strdup(discard);
+
+				struct oss_dspbuf_info info;
+				info.buf = tmp; 
+				info.size = ret; 
+
+				process_audio_buffer_entry(&info); 
+
+				free(tmp);
 			}
 		}
 	}

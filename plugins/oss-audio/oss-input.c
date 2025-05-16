@@ -268,19 +268,11 @@ static void *oss_reader_thr(void *vptr)
 			ssize_t nbytes;
 
 			do {
-				//SOURCE
 				nbytes = read(handle->notify_pipe[0], &buf, 1);
 				assert(nbytes != 0);
 			} while (nbytes < 0 && errno == EINTR);
 
 
-			if (handle->dsp_buf) {
-				void *tmp = handle->dsp_buf;
-				size_t sz = handle->dsp_fragsize;
-				free(handle->dsp_buf);
-				oss_dspbuf(tmp, sz);
-				handle->dsp_buf = NULL;
-			}
 			break;
 		}
 	}
