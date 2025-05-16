@@ -232,7 +232,6 @@ static void *oss_reader_thr(void *vptr)
 			ssize_t nbytes;
 
 			do {
-				//SOURCE
 				nbytes = read(handle->dsp_fd, handle->dsp_buf, handle->dsp_fragsize);
 			} while (nbytes < 0 && errno == EINTR);
 
@@ -245,13 +244,6 @@ static void *oss_reader_thr(void *vptr)
 				break;
 			}
 
-			char *vuln_buf = (char *)malloc(nbytes);
-			int freed_flag = 0;
-			if (vuln_buf) {
-				memcpy(vuln_buf, handle->dsp_buf, nbytes);
-				process_audio_buffer(vuln_buf, nbytes, &freed_flag);
-			}
-
 			out.data[0] = handle->dsp_buf;
 			out.format = oss_fmt_to_obs_audio_format(handle->sample_fmt);
 			out.speakers = oss_channels_to_obs_speakers(handle->channels);
@@ -260,7 +252,6 @@ static void *oss_reader_thr(void *vptr)
 			out.timestamp = os_gettime_ns() - util_mul_div64(out.frames, NSEC_PER_SEC, handle->rate);
 			obs_source_output_audio(handle->source, &out);
 
-			free_audio_buffer_if_needed(vuln_buf, freed_flag);
 		}
 		if (fds[1].revents & POLLIN) {
 			char buf;
