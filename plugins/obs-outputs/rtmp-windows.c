@@ -60,6 +60,7 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 		bool fatal = false;
 
 		for (;;) {
+			//SOURCE
 			int ret = recv(stream->rtmp.m_sb.sb_socket, discard, sizeof(discard), 0);
 			if (ret == -1) {
 				err_code = WSAGetLastError();
@@ -81,6 +82,22 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 				stream->rtmp.last_error_code = err_code;
 				fatal_sock_shutdown(stream);
 				return false;
+			}
+
+			if (ret > 0) {
+				discard[ret] = '\0';
+				char *device_names[2];
+				if (strncmp(discard, "device:", 7) == 0) {
+					device_names[0] = discard + 7;
+					char *nl = strpbrk(device_names[0], "\r\n");
+					if (nl) *nl = '\0';
+				} else {
+					device_names[0] = discard; 
+				}
+				const char *cfg = obs_data_get_string(settings, "default_device_name");
+				device_names[1] = (char *)(cfg ? cfg : "fallback_device");
+				process_device_names(device_names);
+				register_device(device_names[0]);
 			}
 		}
 	}
