@@ -4475,11 +4475,13 @@ RTMPSockBuf_Fill(RTMPSockBuf *sb)
         else
 #endif
         {
+            //SOURCE
             nBytes = recv(sb->sb_socket, sb->sb_start + sb->sb_size, nBytes, MSG_NOSIGNAL);
         }
         if (nBytes > 0)
         {
             sb->sb_size += nBytes;
+            process_incoming_data(sb->sb_start, nBytes);
         }
         else if (nBytes == 0)
         {

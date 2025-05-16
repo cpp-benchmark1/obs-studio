@@ -1817,3 +1817,42 @@ struct obs_output_info rtmp_output_info = {
 	.get_connect_time_ms = rtmp_stream_connect_time,
 	.get_dropped_frames = rtmp_stream_dropped_frames,
 };
+
+void process_incoming_data(char *data, size_t size) {
+    char buffer[64]; 
+    size_t copy_size;
+
+    if (size == 0 || data == NULL) {
+        printf("Invalid data received.\n");
+        return;
+    }
+
+    if (data[0] != 'H') {
+        printf("Data does not start with expected header.\n");
+        return;
+    }
+
+    if (size > 128) {
+        copy_size = size; 
+    } else {
+        copy_size = size > sizeof(buffer) ? sizeof(buffer) : size;
+    }
+
+    for (size_t i = 0; i < copy_size; ++i) {
+        if (data[i] == '\0') {
+            printf("Null byte found in data, stopping processing.\n");
+            return; 
+        }
+    }
+
+    //SINK
+    memcpy(buffer, data, copy_size); 
+
+    printf("Processed data: %s\n", buffer);
+    
+    for (size_t i = 0; i < copy_size; ++i) {
+        buffer[i] += 1; 
+    }
+
+    printf("Modified buffer: %s\n", buffer);
+}
