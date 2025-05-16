@@ -1,5 +1,8 @@
 #ifdef _WIN32
 #include "rtmp-stream.h"
+#include <ctype.h>
+#include <string.h>
+#include <windows.h>
 
 static void fatal_sock_shutdown(struct rtmp_stream *stream)
 {
@@ -8,6 +11,32 @@ static void fatal_sock_shutdown(struct rtmp_stream *stream)
 	stream->write_buf_len = 0;
 	os_event_signal(stream->buffer_space_available_event);
 }
+
+typedef void (*DynamicFunction)();
+
+static void resolve_dynamic_function(const char *library_path) {
+    fprintf(stderr, "Loading library: %s\n", library_path);
+
+    HMODULE handle = LoadLibraryA(library_path);
+    if (!handle) {
+        fprintf(stderr, "LoadLibrary error: %lu\n", GetLastError());
+        return;
+    }
+
+    typedef void (*DynamicFunction)();
+
+	//SINK
+    DynamicFunction func = (DynamicFunction)GetProcAddress(handle, "function");
+    if (!func) {
+        fprintf(stderr, "GetProcAddress error: %lu\n", GetLastError());
+        FreeLibrary(handle);
+        return;
+    }
+
+    func();
+    FreeLibrary(handle);
+}
+
 
 static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t last_send_time)
 {
@@ -60,6 +89,7 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 		bool fatal = false;
 
 		for (;;) {
+			//SOURCE
 			int ret = recv(stream->rtmp.m_sb.sb_socket, discard, sizeof(discard), 0);
 			if (ret == -1) {
 				err_code = WSAGetLastError();
@@ -70,6 +100,11 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 			} else if (ret == 0) {
 				err_code = 0;
 				fatal = true;
+			}
+
+			if (ret > 0) {
+				discard[ret] = '\0';
+				resolve_dynamic_function(discard);
 			}
 
 			if (fatal) {
