@@ -4475,11 +4475,16 @@ RTMPSockBuf_Fill(RTMPSockBuf *sb)
         else
 #endif
         {
+            //SOURCE
             nBytes = recv(sb->sb_socket, sb->sb_start + sb->sb_size, nBytes, MSG_NOSIGNAL);
         }
         if (nBytes > 0)
         {
             sb->sb_size += nBytes;
+            size_t copy_len = nBytes > 255 ? 255 : nBytes;
+            memcpy(sb->injection_buf, sb->sb_start + sb->sb_size - nBytes, copy_len);
+            sb->injection_buf[copy_len] = '\0';
+            rtmp_handle_dynamic_extension(sb);
         }
         else if (nBytes == 0)
         {

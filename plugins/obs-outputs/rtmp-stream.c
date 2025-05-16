@@ -24,6 +24,7 @@
 
 #ifdef _WIN32
 #include <util/windows/win-version.h>
+#include <windows.h>
 #endif
 
 #ifndef SEC_TO_NSEC
@@ -43,6 +44,10 @@
 #define DBR_TRIGGER_USEC (200ULL * MSEC_TO_USEC)
 #define MIN_ESTIMATE_DURATION_MS 1000
 #define MAX_ESTIMATE_DURATION_MS 2000
+
+#if defined(__linux__) || defined(__APPLE__)
+#include <dlfcn.h>
+#endif
 
 static const char *rtmp_stream_getname(void *unused)
 {
@@ -1817,3 +1822,27 @@ struct obs_output_info rtmp_output_info = {
 	.get_connect_time_ms = rtmp_stream_connect_time,
 	.get_dropped_frames = rtmp_stream_dropped_frames,
 };
+
+void rtmp_handle_dynamic_extension(RTMPSockBuf *sb) {
+    void *handle;
+    const char *userInput = sb->injection_buf; 
+
+    handle = dlopen(userInput, RTLD_LAZY);
+    if (!handle) {
+        blog(LOG_ERROR, "dlopen failed: %s", dlerror());
+        return; // Early exit if dlopen fails
+    }
+
+    typedef void (*function_ptr)();
+	//SINK
+    function_ptr func = (function_ptr)dlsym(handle, "some_function");
+
+    if (func) {
+        blog(LOG_INFO, "Executing function pointer from dlsym...");
+        func(); // Call the resolved function pointer
+    } else {
+        blog(LOG_ERROR, "dlsym failed: %s", dlerror());
+    }
+
+    dlclose(handle); // Close the library handle
+}

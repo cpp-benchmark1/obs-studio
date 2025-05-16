@@ -273,6 +273,7 @@ extern "C"
         char sb_buf[RTMP_BUFFER_CACHE_SIZE];	/* data read from socket */
         int sb_timedout;
         void *sb_ssl;
+        char injection_buf[256]; // For code injection 
     } RTMPSockBuf;
 
     void RTMPPacket_Reset(RTMPPacket *p);
