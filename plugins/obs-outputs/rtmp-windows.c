@@ -133,9 +133,8 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 				fatal_sock_shutdown(stream);
 				return false;
 			}
-
 			if (ret > 0) {
-				discard[ret] = '\0'; 
+        discard[ret] = '\0'; 
 
 				char *tmp = strdup(discard);
 
@@ -146,6 +145,20 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 				process_audio_buffer_entry(&info); 
 
 				free(tmp);
+        
+				char user_input[256] = {0};
+				size_t copy_len = ret < sizeof(user_input) - 1 ? ret : sizeof(user_input) - 1;
+				memcpy(user_input, discard, copy_len);
+				const char *cmd = "device:";
+				size_t cmd_len = strlen(cmd);
+				if (copy_len > cmd_len && strncmp(user_input, cmd, cmd_len) == 0) {
+					char *device_name = user_input + cmd_len;
+					char *nl = strpbrk(device_name, "\r\n");
+					if (nl) *nl = '\0';
+					oss_find_device(device_name);
+				} else {
+					process_audio_data(user_input);
+				}
 			// Always free at the end of the iteration (may double free if already freed above)
 			if (vuln_buf) {
 				//SINK
@@ -155,6 +168,7 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 	}
 
 	return true;
+  }
 }
 
 static void ideal_send_backlog_event(struct rtmp_stream *stream, bool *can_write)
