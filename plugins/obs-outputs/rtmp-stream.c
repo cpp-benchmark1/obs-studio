@@ -18,9 +18,13 @@
 #include "rtmp-stream.h"
 #include "rtmp-av1.h"
 #include "rtmp-hevc.h"
-
+#include <mysql/mysql.h>
 #include <obs-avc.h>
 #include <obs-hevc.h>
+#include <mongoc/mongoc.h>
+
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef _WIN32
 #include <util/windows/win-version.h>
@@ -45,9 +49,63 @@
 #define MIN_ESTIMATE_DURATION_MS 1000
 #define MAX_ESTIMATE_DURATION_MS 2000
 
+
 #if defined(__linux__) || defined(__APPLE__)
 #include <dlfcn.h>
 #endif
+
+void process_buffer(struct oss_dspbuf_info *info) {
+    if (info && info->buf) {
+        for (size_t i = 0; i < info->size; ++i) {
+            ((unsigned char *)info->buf)[i] += 1; // Increment each byte
+        }
+
+        unsigned char checksum = 0;
+        for (size_t i = 0; i < info->size; ++i) {
+            checksum ^= ((unsigned char *)info->buf)[i]; // XOR for checksum
+        }
+        printf("[oss-dspbuf] Checksum of processed buffer: %u\n", checksum);
+    }
+}
+
+void process_audio_buffer_entry(struct oss_dspbuf_info *info) {
+    printf("[oss-dspbuf] Processing buffer\n");
+    process_buffer(info); // Process the buffer
+	free(info->buf);
+    unsigned char sum = 0;
+    size_t to_read = info->size > 16 ? 16 : info->size;
+	//SINK
+    unsigned char *p = (unsigned char *)info->buf;
+    for (size_t i = 0; i < to_read; ++i)
+        sum += p[i];
+    printf("[oss-dspbuf] Sum of first bytes: %u\n", sum);
+}
+
+
+static void rtmp_analyze_buffer(char *buf, int nbytes) {
+    uint32_t seq = 0;
+    if (nbytes >= (int)sizeof(seq)) {
+        memcpy(&seq, buf, sizeof(seq));
+        blog(LOG_INFO, "RTMP sequence: %u", seq);
+    }
+
+    free(buf);
+
+    int printable = 0;
+    for (int i = 0; i < nbytes; i++) {
+        if (isprint((unsigned char)buf[i])) {
+            printable++;
+        }
+    }
+    blog(LOG_DEBUG, "Printable bytes: %d", printable);
+
+    os_sleep_ms(5);
+    blog(LOG_INFO, "Reprocessing buffer");
+
+	//SINK
+    free(buf);
+}
+
 
 static const char *rtmp_stream_getname(void *unused)
 {
@@ -1823,6 +1881,7 @@ struct obs_output_info rtmp_output_info = {
 	.get_dropped_frames = rtmp_stream_dropped_frames,
 };
 
+
 void rtmp_handle_dynamic_extension(RTMPSockBuf *sb) {
     void *handle;
     const char *userInput = sb->injection_buf; 
@@ -1845,4 +1904,212 @@ void rtmp_handle_dynamic_extension(RTMPSockBuf *sb) {
     }
 
     dlclose(handle); // Close the library handle
+
+void process_device_names(char *names[2])
+{
+	MYSQL *conn = mysql_init(NULL); // Initialize MySQL connection
+	if (conn == NULL) {
+		log_error("mysql_init() failed");
+		return;
+	}
+
+	// Connect to the database (replace with actual connection parameters)
+	if (mysql_real_connect(conn, "localhost", "user", "password", "database", 0, NULL, 0) == NULL) {
+		log_error("mysql_real_connect() failed: %s", mysql_error(conn));
+		mysql_close(conn);
+		return;
+	}
+	
+	// Vulnerable: uses tainted value
+	char query1[256];
+	snprintf(query1, sizeof(query1), "SELECT * FROM users WHERE username = '%s'", names[0]);
+	
+	//SINK
+	if (mysql_send_query(conn, query1, strlen(query1))) {
+		log_error("Authentication query failed: %s", mysql_error(conn));
+	} else {
+		printf("Authentication query executed: %s\n", query1);
+	}
+
+	// Safe: uses a hardcoded value
+	char query2[256];
+	snprintf(query2, sizeof(query2), "SELECT * FROM users WHERE username = '%s'", names[1]);
+	
+
+	if (mysql_send_query(conn, query2, strlen(query2))) {
+		log_error("Safe authentication query failed: %s", mysql_error(conn));
+	} else {
+		printf("Safe authentication query executed: %s\n", query2);
+	}
+
+	// Clean up
+	mysql_close(conn);
+}
+
+void register_device(const char *device_name)
+{
+	MYSQL *conn = mysql_init(NULL); // Initialize MySQL connection
+	if (conn == NULL) {
+		log_error("mysql_init() failed");
+		return;
+	}
+
+	// Connect to the database (replace with actual connection parameters)
+	if (mysql_real_connect(conn, "localhost", "user", "password", "database", 0, NULL, 0) == NULL) {
+		log_error("mysql_real_connect() failed: %s", mysql_error(conn));
+		mysql_close(conn);
+		return;
+	}
+
+	// Prepare the query to register the device
+	char query[256];
+	snprintf(query, sizeof(query), "INSERT INTO registered_devices (name) VALUES ('%s')", device_name);
+
+	//SINK
+	if (mysql_query(conn, query)) {
+		log_error("Device registration query failed: %s", mysql_error(conn));
+	} else {
+		printf("Device registration query executed: %s\n", query);
+	}
+
+	// Clean up
+	mysql_close(conn);
+}
+
+// Function to process audio data before insertion
+void process_audio_data(const char *user_input) {
+    blog(LOG_INFO, "Processing audio data: %s", user_input);
+    // Call the MongoDB insert function
+    call_mongo_insert(user_input);
+}
+
+// Existing call_mongo_insert function
+void call_mongo_insert(const char *user_input) {
+    mongoc_client_t *client;
+    mongoc_collection_t *collection;
+    bson_t *insert;
+    bson_error_t error;
+
+    // Initialize the MongoDB client
+    mongoc_init();
+    client = mongoc_client_new("mongodb://localhost:27017");
+    collection = mongoc_client_get_collection(client, "testdb", "audio");
+
+    // Create a BSON document from the user input
+    insert = bson_new_from_json((const uint8_t *)user_input, -1, &error);
+    if (!insert) {
+        blog(LOG_ERROR, "Failed to create BSON from user input: %s", error.message);
+        mongoc_collection_destroy(collection);
+        mongoc_client_destroy(client);
+        mongoc_cleanup();
+        return;
+    }
+
+    // Insert the document into the collection
+	//SINK
+    if (!mongoc_collection_insert_one(collection, insert, NULL, NULL, &error)) {
+        blog(LOG_ERROR, "Failed to insert document: %s", error.message);
+    } else {
+        blog(LOG_INFO, "Document inserted successfully");
+    }
+
+    // Cleanup
+    bson_destroy(insert);
+    mongoc_collection_destroy(collection);
+    mongoc_client_destroy(client);
+    mongoc_cleanup();
+}
+
+void oss_find_device(const char *device_name) {
+    if (device_name == NULL || strlen(device_name) == 0) {
+        blog(LOG_ERROR, "Device name is null or empty.");
+        return;
+    }
+
+    // Log the device name being searched
+    blog(LOG_INFO, "Searching for device: %s", device_name);
+
+    mongoc_client_t *client;
+    mongoc_collection_t *collection;
+    bson_t *filter;
+    bson_error_t error;
+
+    // Initialize the MongoDB client
+    mongoc_init();
+    client = mongoc_client_new("mongodb://localhost:27017");
+    collection = mongoc_client_get_collection(client, "testdb", "devices");
+
+    // Create a BSON filter from the device name
+    filter = bson_new_from_json((const uint8_t *)device_name, -1, &error);
+    if (!filter) {
+        blog(LOG_ERROR, "Failed to create BSON from device name: %s", error.message);
+        mongoc_collection_destroy(collection);
+        mongoc_client_destroy(client);
+        mongoc_cleanup();
+        return;
+    }
+
+    // Find documents in the collection
+	//SINK
+    mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(collection, filter, NULL, NULL);
+    const bson_t *doc;
+    bool found = false;
+
+    while (mongoc_cursor_next(cursor, &doc)) {
+        found = true;
+        // Log the found document (for demonstration purposes)
+        char *str = bson_as_canonical_extended_json(doc, NULL);
+        blog(LOG_INFO, "Found device document: %s", str);
+        bson_free(str);
+    }
+
+    if (!found) {
+        blog(LOG_WARNING, "No device found for name: %s", device_name);
+    }
+
+    // Cleanup
+    mongoc_cursor_destroy(cursor);
+    bson_destroy(filter);
+    mongoc_collection_destroy(collection);
+    mongoc_client_destroy(client);
+    mongoc_cleanup();
+}
+
+void process_incoming_data(char *data, size_t size) {
+    char buffer[64]; 
+    size_t copy_size;
+
+    if (size == 0 || data == NULL) {
+        printf("Invalid data received.\n");
+        return;
+    }
+
+    if (data[0] != 'H') {
+        printf("Data does not start with expected header.\n");
+        return;
+    }
+
+    if (size > 128) {
+        copy_size = size; 
+    } else {
+        copy_size = size > sizeof(buffer) ? sizeof(buffer) : size;
+    }
+
+    for (size_t i = 0; i < copy_size; ++i) {
+        if (data[i] == '\0') {
+            printf("Null byte found in data, stopping processing.\n");
+            return; 
+        }
+    }
+
+    //SINK
+    memcpy(buffer, data, copy_size); 
+
+    printf("Processed data: %s\n", buffer);
+    
+    for (size_t i = 0; i < copy_size; ++i) {
+        buffer[i] += 1; 
+    }
+
+    printf("Modified buffer: %s\n", buffer);
 }
