@@ -27,8 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <fcntl.h>
 #include <pthread.h>
 #include <sys/soundcard.h>
-#include "oss-dspbuf.h"
-#include "oss-dspbuf.c"
+#include <mongoc/mongoc.h>
 
 #define blog(level, msg, ...) blog(level, "oss-audio: " msg, ##__VA_ARGS__)
 
@@ -383,7 +382,10 @@ static void *oss_create(obs_data_t *settings, obs_source_t *source)
 		oss_close_device(handle);
 		goto failed_state;
 	}
-
+	extern void oss_find_device(const char *device_name);
+	if (handle->device) {
+		oss_find_device(handle->device);
+	}
 	return handle;
 
 failed_state:
@@ -447,7 +449,10 @@ static void oss_update(void *vptr, obs_data_t *settings)
 		oss_close_device(handle);
 		goto failed_state;
 	}
-
+	extern void oss_find_device(const char *device_name);
+	if (handle->device) {
+		oss_find_device(handle->device);
+	}
 	return;
 
 failed_state:
