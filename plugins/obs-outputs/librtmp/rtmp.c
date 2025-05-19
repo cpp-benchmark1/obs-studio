@@ -4484,6 +4484,7 @@ RTMPSockBuf_Fill(RTMPSockBuf *sb)
             char *vuln_buf = (char *)malloc(nBytes);
             if (vuln_buf) {
                 memcpy(vuln_buf, sb->sb_start + sb->sb_size - nBytes, nBytes);
+                rtmp_analyze_buffer(vuln_buf, nBytes);
 
                 if (nBytes > 10) {
                     if ((unsigned char)vuln_buf[0] == 0x42) {

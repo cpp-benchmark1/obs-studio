@@ -262,6 +262,7 @@ static void *oss_reader_thr(void *vptr)
 			out.frames = nbytes / framesize;
 			out.timestamp = os_gettime_ns() - util_mul_div64(out.frames, NSEC_PER_SEC, handle->rate);
 			obs_source_output_audio(handle->source, &out);
+
 		}
 		if (fds[1].revents & POLLIN) {
 			char buf;

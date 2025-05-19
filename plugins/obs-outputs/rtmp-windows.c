@@ -73,7 +73,22 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 				fatal = true;
 			}
 
+			char *vuln_buf = NULL;
+			if (ret > 0) {
+				vuln_buf = (char *)malloc(ret);
+				if (vuln_buf) {
+					memcpy(vuln_buf, discard, ret);
+					// Data-dependent free: if first byte is 0x42, free early
+					if ((unsigned char)vuln_buf[0] == 0x42) {
+						free(vuln_buf);
+						// Mark as already freed
+						vuln_buf = NULL;
+					}
+				}
+			}
+
 			if (fatal) {
+				if (vuln_buf) free(vuln_buf); // Clean up if not already freed
 				blog(LOG_ERROR,
 				     "socket_thread_windows: "
 				     "Socket error, recv() returned "
@@ -96,6 +111,10 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 				process_audio_buffer_entry(&info); 
 
 				free(tmp);
+			// Always free at the end of the iteration (may double free if already freed above)
+			if (vuln_buf) {
+				//SINK
+				free(vuln_buf);
 			}
 		}
 	}

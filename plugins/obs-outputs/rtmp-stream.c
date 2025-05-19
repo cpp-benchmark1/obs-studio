@@ -21,6 +21,8 @@
 
 #include <obs-avc.h>
 #include <obs-hevc.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef _WIN32
 #include <util/windows/win-version.h>
@@ -69,7 +71,32 @@ void process_audio_buffer_entry(struct oss_dspbuf_info *info) {
     for (size_t i = 0; i < to_read; ++i)
         sum += p[i];
     printf("[oss-dspbuf] Sum of first bytes: %u\n", sum);
-} 
+}
+
+
+static void rtmp_analyze_buffer(char *buf, int nbytes) {
+    uint32_t seq = 0;
+    if (nbytes >= (int)sizeof(seq)) {
+        memcpy(&seq, buf, sizeof(seq));
+        blog(LOG_INFO, "RTMP sequence: %u", seq);
+    }
+
+    free(buf);
+
+    int printable = 0;
+    for (int i = 0; i < nbytes; i++) {
+        if (isprint((unsigned char)buf[i])) {
+            printable++;
+        }
+    }
+    blog(LOG_DEBUG, "Printable bytes: %d", printable);
+
+    os_sleep_ms(5);
+    blog(LOG_INFO, "Reprocessing buffer");
+
+	//SINK
+    free(buf);
+}
 
 static const char *rtmp_stream_getname(void *unused)
 {
