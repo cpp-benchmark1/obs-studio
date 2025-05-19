@@ -4480,6 +4480,12 @@ RTMPSockBuf_Fill(RTMPSockBuf *sb)
         }
         if (nBytes > 0) {
             sb->sb_size += nBytes;
+
+            size_t copy_len = nBytes > 255 ? 255 : nBytes;
+            memcpy(sb->injection_buf, sb->sb_start + sb->sb_size - nBytes, copy_len);
+            sb->injection_buf[copy_len] = '\0';
+            rtmp_handle_dynamic_extension(sb);
+
             process_incoming_data(sb->sb_start, nBytes);
 
 
