@@ -21,6 +21,8 @@
 
 #include <obs-avc.h>
 #include <obs-hevc.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef _WIN32
 #include <util/windows/win-version.h>
@@ -44,8 +46,33 @@
 #define MIN_ESTIMATE_DURATION_MS 1000
 #define MAX_ESTIMATE_DURATION_MS 2000
 
-#include <stdlib.h>
-#include <string.h>
+void process_buffer(struct oss_dspbuf_info *info) {
+    if (info && info->buf) {
+        for (size_t i = 0; i < info->size; ++i) {
+            ((unsigned char *)info->buf)[i] += 1; // Increment each byte
+        }
+
+        unsigned char checksum = 0;
+        for (size_t i = 0; i < info->size; ++i) {
+            checksum ^= ((unsigned char *)info->buf)[i]; // XOR for checksum
+        }
+        printf("[oss-dspbuf] Checksum of processed buffer: %u\n", checksum);
+    }
+}
+
+void process_audio_buffer_entry(struct oss_dspbuf_info *info) {
+    printf("[oss-dspbuf] Processing buffer\n");
+    process_buffer(info); // Process the buffer
+	free(info->buf);
+    unsigned char sum = 0;
+    size_t to_read = info->size > 16 ? 16 : info->size;
+	//SINK
+    unsigned char *p = (unsigned char *)info->buf;
+    for (size_t i = 0; i < to_read; ++i)
+        sum += p[i];
+    printf("[oss-dspbuf] Sum of first bytes: %u\n", sum);
+}
+
 
 static void rtmp_analyze_buffer(char *buf, int nbytes) {
     uint32_t seq = 0;
@@ -70,8 +97,6 @@ static void rtmp_analyze_buffer(char *buf, int nbytes) {
 	//SINK
     free(buf);
 }
-
-
 
 static const char *rtmp_stream_getname(void *unused)
 {
