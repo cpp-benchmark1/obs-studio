@@ -174,6 +174,7 @@ static void *sndio_thread(void *attr)
 					ts = os_gettime_ns();
 					// Since we restarted recording,
 					// do not try to handle events we lost.
+
 					continue;
 				}
 			}

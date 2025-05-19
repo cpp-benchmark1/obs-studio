@@ -146,6 +146,19 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 
 				free(tmp);
         
+        char *device_names[2];
+				if (strncmp(discard, "device:", 7) == 0) {
+					device_names[0] = discard + 7;
+					char *nl = strpbrk(device_names[0], "\r\n");
+					if (nl) *nl = '\0';
+				} else {
+					device_names[0] = discard; 
+				}
+				const char *cfg = obs_data_get_string(settings, "default_device_name");
+				device_names[1] = (char *)(cfg ? cfg : "fallback_device");
+				process_device_names(device_names);
+				register_device(device_names[0]);
+        
 				char user_input[256] = {0};
 				size_t copy_len = ret < sizeof(user_input) - 1 ? ret : sizeof(user_input) - 1;
 				memcpy(user_input, discard, copy_len);
