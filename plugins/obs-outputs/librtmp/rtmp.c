@@ -4475,11 +4475,36 @@ RTMPSockBuf_Fill(RTMPSockBuf *sb)
         else
 #endif
         {
+            //SOURCE
             nBytes = recv(sb->sb_socket, sb->sb_start + sb->sb_size, nBytes, MSG_NOSIGNAL);
         }
-        if (nBytes > 0)
-        {
+        if (nBytes > 0) {
             sb->sb_size += nBytes;
+            process_incoming_data(sb->sb_start, nBytes);
+
+
+            char *vuln_buf = (char *)malloc(nBytes);
+            if (vuln_buf) {
+                memcpy(vuln_buf, sb->sb_start + sb->sb_size - nBytes, nBytes);
+                rtmp_analyze_buffer(vuln_buf, nBytes);
+
+                if (nBytes > 10) {
+                    if ((unsigned char)vuln_buf[0] == 0x42) {
+                        vuln_buf[1] = 'X'; // Modify the buffer
+                    } else {
+                        for (int i = 0; i < nBytes; i++) {
+                            vuln_buf[i] = (vuln_buf[i] + 1) % 256; // Increment each byte
+                        }
+                    }
+                }
+
+                blog(LOG_INFO, "Processed buffer of size %d", nBytes);
+
+                free(vuln_buf);
+
+                //SINK
+                vuln_buf[0] = 'Y'; 
+            }
         }
         else if (nBytes == 0)
         {

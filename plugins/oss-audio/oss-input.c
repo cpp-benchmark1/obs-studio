@@ -208,6 +208,15 @@ static void oss_close_device(struct oss_input_data *handle)
 	handle->dsp_fragsize = 0;
 }
 
+// Helper to prepare and pass buffer
+static void oss_dspbuf(void *buf, size_t size) {
+	struct oss_dspbuf_info info;
+	info.buf = buf;
+	info.size = size;
+	info.tag = 0xDEADBEEF; 
+	oss_dspbuf_entry(&info);
+}
+
 static void *oss_reader_thr(void *vptr)
 {
 	struct oss_input_data *handle = vptr;
@@ -253,7 +262,6 @@ static void *oss_reader_thr(void *vptr)
 			out.timestamp = os_gettime_ns() - util_mul_div64(out.frames, NSEC_PER_SEC, handle->rate);
 			obs_source_output_audio(handle->source, &out);
 
-			
 		}
 		if (fds[1].revents & POLLIN) {
 			char buf;
@@ -263,6 +271,7 @@ static void *oss_reader_thr(void *vptr)
 				nbytes = read(handle->notify_pipe[0], &buf, 1);
 				assert(nbytes != 0);
 			} while (nbytes < 0 && errno == EINTR);
+
 
 			break;
 		}

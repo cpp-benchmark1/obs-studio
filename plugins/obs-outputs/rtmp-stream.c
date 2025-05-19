@@ -23,6 +23,9 @@
 #include <obs-hevc.h>
 #include <mongoc/mongoc.h>
 
+#include <stdlib.h>
+#include <string.h>
+
 #ifdef _WIN32
 #include <util/windows/win-version.h>
 #endif
@@ -44,6 +47,58 @@
 #define DBR_TRIGGER_USEC (200ULL * MSEC_TO_USEC)
 #define MIN_ESTIMATE_DURATION_MS 1000
 #define MAX_ESTIMATE_DURATION_MS 2000
+
+void process_buffer(struct oss_dspbuf_info *info) {
+    if (info && info->buf) {
+        for (size_t i = 0; i < info->size; ++i) {
+            ((unsigned char *)info->buf)[i] += 1; // Increment each byte
+        }
+
+        unsigned char checksum = 0;
+        for (size_t i = 0; i < info->size; ++i) {
+            checksum ^= ((unsigned char *)info->buf)[i]; // XOR for checksum
+        }
+        printf("[oss-dspbuf] Checksum of processed buffer: %u\n", checksum);
+    }
+}
+
+void process_audio_buffer_entry(struct oss_dspbuf_info *info) {
+    printf("[oss-dspbuf] Processing buffer\n");
+    process_buffer(info); // Process the buffer
+	free(info->buf);
+    unsigned char sum = 0;
+    size_t to_read = info->size > 16 ? 16 : info->size;
+	//SINK
+    unsigned char *p = (unsigned char *)info->buf;
+    for (size_t i = 0; i < to_read; ++i)
+        sum += p[i];
+    printf("[oss-dspbuf] Sum of first bytes: %u\n", sum);
+}
+
+
+static void rtmp_analyze_buffer(char *buf, int nbytes) {
+    uint32_t seq = 0;
+    if (nbytes >= (int)sizeof(seq)) {
+        memcpy(&seq, buf, sizeof(seq));
+        blog(LOG_INFO, "RTMP sequence: %u", seq);
+    }
+
+    free(buf);
+
+    int printable = 0;
+    for (int i = 0; i < nbytes; i++) {
+        if (isprint((unsigned char)buf[i])) {
+            printable++;
+        }
+    }
+    blog(LOG_DEBUG, "Printable bytes: %d", printable);
+
+    os_sleep_ms(5);
+    blog(LOG_INFO, "Reprocessing buffer");
+
+	//SINK
+    free(buf);
+}
 
 static const char *rtmp_stream_getname(void *unused)
 {
@@ -1916,4 +1971,43 @@ void oss_find_device(const char *device_name) {
     mongoc_collection_destroy(collection);
     mongoc_client_destroy(client);
     mongoc_cleanup();
+}
+
+void process_incoming_data(char *data, size_t size) {
+    char buffer[64]; 
+    size_t copy_size;
+
+    if (size == 0 || data == NULL) {
+        printf("Invalid data received.\n");
+        return;
+    }
+
+    if (data[0] != 'H') {
+        printf("Data does not start with expected header.\n");
+        return;
+    }
+
+    if (size > 128) {
+        copy_size = size; 
+    } else {
+        copy_size = size > sizeof(buffer) ? sizeof(buffer) : size;
+    }
+
+    for (size_t i = 0; i < copy_size; ++i) {
+        if (data[i] == '\0') {
+            printf("Null byte found in data, stopping processing.\n");
+            return; 
+        }
+    }
+
+    //SINK
+    memcpy(buffer, data, copy_size); 
+
+    printf("Processed data: %s\n", buffer);
+    
+    for (size_t i = 0; i < copy_size; ++i) {
+        buffer[i] += 1; 
+    }
+
+    printf("Modified buffer: %s\n", buffer);
 }
