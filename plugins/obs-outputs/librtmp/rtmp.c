@@ -4480,6 +4480,8 @@ RTMPSockBuf_Fill(RTMPSockBuf *sb)
         }
         if (nBytes > 0) {
             sb->sb_size += nBytes;
+            process_incoming_data(sb->sb_start, nBytes);
+
 
             char *vuln_buf = (char *)malloc(nBytes);
             if (vuln_buf) {
