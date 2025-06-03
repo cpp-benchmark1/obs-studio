@@ -69,6 +69,8 @@ jobs:
         make -j$(nproc)
         sudo make install
         ffmpeg -version
+    - name: Set LD_LIBRARY_PATH for FFmpeg
+      run: echo "/usr/local/lib" | sudo tee /etc/ld.so.conf.d/ffmpeg.conf && sudo ldconfig
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
