@@ -59,13 +59,15 @@ jobs:
         make
         sudo make install
         cd ..
-    - name: Download FFmpeg 6.1 static build
+    - name: Build and install FFmpeg 6.1 from source
       run: |
-        wget https://www.johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
-        tar -xf ffmpeg-release-amd64-static.tar.xz
-        FFMPEG_DIR=$(find $PWD -type d -name 'ffmpeg-*static')
-        echo "$FFMPEG_DIR" >> $GITHUB_PATH
-        export PATH="$FFMPEG_DIR:$PATH"
+        sudo apt-get update
+        sudo apt-get install -y yasm pkg-config libssl-dev
+        git clone --depth 1 --branch n6.1 https://github.com/FFmpeg/FFmpeg.git
+        cd FFmpeg
+        ./configure --prefix=/usr/local --enable-shared --disable-static --disable-doc
+        make -j$(nproc)
+        sudo make install
         ffmpeg -version
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
