@@ -65,7 +65,6 @@ jobs:
         tar -xf ffmpeg-release-amd64-static.tar.xz
         FFMPEG_DIR=$(find $PWD -type d -name 'ffmpeg-*static')
         echo "$FFMPEG_DIR" >> $GITHUB_PATH
-        echo "$FFMPEG_DIR" >> $PATH
         export PATH="$FFMPEG_DIR:$PATH"
         ffmpeg -version
     - name: Initialize CodeQL
