@@ -16,7 +16,7 @@ jobs:
     runs-on: 'ubuntu-22.04'
     env:
       LD_LIBRARY_PATH: /usr/local/lib
-      PATH: /usr/local/bin:${{ env.PATH }}
+      PATH: /usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
     permissions:
       security-events: write
       packages: read
