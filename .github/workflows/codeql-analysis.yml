@@ -71,6 +71,11 @@ jobs:
         ffmpeg -version
     - name: Set LD_LIBRARY_PATH for FFmpeg
       run: echo "/usr/local/lib" | sudo tee /etc/ld.so.conf.d/ffmpeg.conf && sudo ldconfig
+    - name: Use newly built FFmpeg
+      run: |
+        export PATH="/usr/local/bin:$PATH"
+        export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
+        ffmpeg -version
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
