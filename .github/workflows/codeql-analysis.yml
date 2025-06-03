@@ -13,7 +13,7 @@ on:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-22.04'
     permissions:
       security-events: write
       packages: read
@@ -59,6 +59,15 @@ jobs:
         make
         sudo make install
         cd ..
+    - name: Download FFmpeg 6.1 static build
+      run: |
+        wget https://www.johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+        tar -xf ffmpeg-release-amd64-static.tar.xz
+        FFMPEG_DIR=$(find $PWD -type d -name 'ffmpeg-*static')
+        echo "$FFMPEG_DIR" >> $GITHUB_PATH
+        echo "$FFMPEG_DIR" >> $PATH
+        export PATH="$FFMPEG_DIR:$PATH"
+        ffmpeg -version
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
