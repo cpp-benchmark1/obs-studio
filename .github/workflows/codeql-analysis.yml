@@ -63,6 +63,15 @@ jobs:
         sudo make install
         cd ..
 
+        echo 'Building Qt6 base from source'
+        sudo apt-get install -y git cmake g++ libgl1-mesa-dev
+        git clone --branch v6.2.4 --depth 1 https://github.com/qt/qtbase.git
+        cd qtbase
+        cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+        cmake --build build -j$(nproc)
+        sudo cmake --install build
+        cd ..
+
         echo 'Building Qt6Svg from source'
         sudo apt-get install -y git cmake g++ libgl1-mesa-dev
         git clone --branch v6.2.4 --depth 1 https://github.com/qt/qtsvg.git
