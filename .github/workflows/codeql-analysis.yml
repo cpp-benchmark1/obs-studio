@@ -30,6 +30,11 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: 'recursive'
+    - name: Reset APT sources and update
+      run: |
+        sudo rm -f /etc/apt/sources.list.d/*
+        sudo sed -i 's|mirror+file:/etc/apt/apt-mirrors.txt|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+        sudo apt-get update
     - if: matrix.build-mode == 'manual'
       shell: bash
       run: |
