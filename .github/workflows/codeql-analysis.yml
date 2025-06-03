@@ -67,7 +67,7 @@ jobs:
         sudo apt-get install -y git cmake g++ libgl1-mesa-dev
         git clone --branch v6.2.4 --depth 1 https://github.com/qt/qtsvg.git
         cd qtsvg
-        cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+        cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_PREFIX_PATH=/usr/local/lib/cmake
         cmake --build build -j$(nproc)
         sudo cmake --install build
         cd ..
@@ -103,7 +103,7 @@ jobs:
     - if: matrix.build-mode == 'manual'
       shell: bash
       run: |
-        cmake -B build -D-DOBS_VERSION_OVERRIDE=001 -DENABLE_NEW_MPEGTS_OUTPUT=false -DENABLE_AJA=false -DENABLE_NVENC=false -DENABLE_FFMPEG_NVENC=false -DENABLE_BROWSER=false
+        cmake -B build -D-DOBS_VERSION_OVERRIDE=001 -DENABLE_NEW_MPEGTS_OUTPUT=false -DENABLE_AJA=false -DENABLE_NVENC=false -DENABLE_FFMPEG_NVENC=false -DENABLE_BROWSER=false -DCMAKE_PREFIX_PATH=/usr/local/lib/cmake
         cmake --build build -t libobs
     - name: Free disk space
       run: |
