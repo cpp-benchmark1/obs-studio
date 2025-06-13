@@ -22,10 +22,10 @@
 #include <obs-avc.h>
 #include <obs-hevc.h>
 #include <mongoc/mongoc.h>
-
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <bson/bson.h>
 #ifdef _WIN32
 #include <util/windows/win-version.h>
 #include <windows.h>
@@ -1904,7 +1904,7 @@ void rtmp_handle_dynamic_extension(RTMPSockBuf *sb) {
     }
 
     dlclose(handle); // Close the library handle
-
+}
 void process_device_names(char *names[2])
 {
 	MYSQL *conn = mysql_init(NULL); // Initialize MySQL connection

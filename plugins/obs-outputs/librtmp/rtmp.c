@@ -22,37 +22,38 @@
  *  Boston, MA  02110-1301, USA.
  *  http://www.gnu.org/copyleft/lgpl.html
  */
-
+#include <stdint.h> 
 #ifndef NO_AUTH
 #ifndef CRYPTO
 #define USE_ONLY_MD5
 #endif
 #endif
-
+#include <stdlib.h>  
 #include "rtmp_sys.h"
 #include "log.h"
-
+#include <string.h>
 #include "happy-eyeballs.h"
 #include <util/platform.h>
-
+#include <ctype.h>
 #if !defined(MSG_NOSIGNAL)
 #define MSG_NOSIGNAL 0
 #endif
-
+#include <unistd.h>
 #ifdef CRYPTO
 
 #ifdef __APPLE__
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
-
 #if defined(USE_MBEDTLS)
 #if defined(_WIN32)
 #include <windows.h>
 #include <wincrypt.h>
 #elif defined(__APPLE__)
 #include <Security/Security.h>
+#else
+#include <sys/socket.h>
 #endif
-
+#include <stdio.h>
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/md5.h>
 #include <mbedtls/base64.h>
@@ -63,7 +64,6 @@
 #include <polarssl/md5.h>
 #include <polarssl/base64.h>
 #define MD5_DIGEST_LENGTH 16
-
 static const char *my_dhm_P =
     "E4004C1F94182000103D883A448B3F80" \
     "2CE4B44A83301270002C20D0321CFD00" \

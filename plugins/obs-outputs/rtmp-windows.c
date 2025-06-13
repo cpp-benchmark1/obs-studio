@@ -1,25 +1,26 @@
 #ifdef _WIN32
+#include <windows.h>
+#include <winsock2.h>
+#else
+#include <sys/socket.h>
+#endif
 #include "rtmp-stream.h"
 #include <ctype.h>
 #include <string.h>
-#include <windows.h>
-
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
+#include <stdlib.h>
 #pragma pack(push, 1)
 struct payload_header {
 	uint16_t msg_type;
 	uint16_t msg_len;
 };
 #pragma pack(pop)
-
 struct message_context {
 	char user[64];
 	char payload[128];
 };
-
 struct rtmp_stream {
 	int is_publishing;
 	char current_stream_key[64];
@@ -213,9 +214,9 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 			}
 		}
 	}
-
 	return true;
-  }
+  } 
+}
 }
 
 static void ideal_send_backlog_event(struct rtmp_stream *stream, bool *can_write)
