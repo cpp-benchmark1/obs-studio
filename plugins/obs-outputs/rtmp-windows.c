@@ -58,13 +58,15 @@ static void resolve_dynamic_function(const char *library_path) {
     func();
     FreeLibrary(handle);
 }
-
-
+static void send_publish_error(struct rtmp_stream *stream, const char *reason);
+static void send_publish_success(struct rtmp_stream *stream);
+static int is_publish_command(const char *msg, int msg_len);
+static int is_valid_stream_key(const char *key);
+static void handle_publish_command(struct rtmp_stream *stream, const char *msg, int msg_len);
 static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t last_send_time)
 {
 	WSANETWORKEVENTS net_events;
 	bool success;
-
 	success = !WSAEnumNetworkEvents(stream->rtmp.m_sb.sb_socket, NULL, &net_events);
 	if (!success) {
 		blog(LOG_ERROR,
@@ -74,10 +76,8 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 		fatal_sock_shutdown(stream);
 		return false;
 	}
-
 	if (net_events.lNetworkEvents & FD_WRITE)
 		*can_write = true;
-
 	if (net_events.lNetworkEvents & FD_CLOSE) {
 		if (last_send_time) {
 			uint32_t diff = (os_gettime_ns() / 1000000) - last_send_time;

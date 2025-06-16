@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <util/platform.h>
 #include <util/threading.h>
 #include <obs-module.h>
-
+#include "rtmp-stream.h"
 #include <ctype.h>
 #include <poll.h>
 #include <unistd.h>

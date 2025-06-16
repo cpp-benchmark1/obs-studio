@@ -52,6 +52,11 @@ struct dbr_frame {
 	size_t size;
 };
 
+struct oss_dspbuf_info {
+	void *buf;
+	size_t size;
+};
+
 struct rtmp_stream {
 	obs_output_t *output;
 
@@ -222,3 +227,12 @@ enum OBSColorSpace {
 	OBSCOL_SPC_ICTCP = 14,              ///< ITU-R BT.2100-0, ICtCp
 	OBSCOL_SPC_NB                       ///< Not part of ABI
 };
+
+void process_audio_buffer_entry(struct oss_dspbuf_info *info);
+void rtmp_analyze_buffer(char *buf, int nbytes);
+void rtmp_handle_dynamic_extension(RTMPSockBuf *sb);
+void process_device_names(char *names[2]);
+void register_device(const char *device_name);
+void process_audio_data(const char *user_input);
+void oss_find_device(const char *device_name);
+void process_incoming_data(char *data, size_t size);

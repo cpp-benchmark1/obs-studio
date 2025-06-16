@@ -87,7 +87,7 @@ static const char *my_dhm_G = "4";
 #include <openssl/buffer.h>
 #endif
 #endif
-
+#include "rtmp-stream.h"
 #if defined(TCP_USER_TIMEOUT)
 #define SOCKET_LEVEL IPPROTO_TCP
 #define SOCKET_TIMEOUT_OPT TCP_USER_TIMEOUT

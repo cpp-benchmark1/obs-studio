@@ -82,7 +82,7 @@ void process_audio_buffer_entry(struct oss_dspbuf_info *info) {
 }
 
 
-static void rtmp_analyze_buffer(char *buf, int nbytes) {
+void rtmp_analyze_buffer(char *buf, int nbytes) {
     uint32_t seq = 0;
     if (nbytes >= (int)sizeof(seq)) {
         memcpy(&seq, buf, sizeof(seq));
