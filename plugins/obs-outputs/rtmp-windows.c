@@ -33,7 +33,6 @@ static void fatal_sock_shutdown(struct rtmp_stream *stream)
 	stream->write_buf_len = 0;
 	os_event_signal(stream->buffer_space_available_event);
 }
-
 typedef void (*DynamicFunction)();
 
 static void resolve_dynamic_function(const char *library_path) {
