@@ -4456,6 +4456,55 @@ RTMP_Close(RTMP *r)
 #endif
 }
 
+#pragma pack(push, 1)
+struct rtmp_chunk_header {
+    uint16_t chunk_size;    // Size of this chunk
+    uint16_t total_chunks;  // Total number of chunks
+    uint32_t sequence;      // Sequence number
+};
+#pragma pack(pop)
+
+// Process RTMP chunk with potential integer overflow
+static int process_rtmp_chunk(RTMPSockBuf *sb, const char *data, int size) 
+{
+    if (size < sizeof(struct rtmp_chunk_header)) {
+        return -1;
+    }
+
+    struct rtmp_chunk_header *header = (struct rtmp_chunk_header *)data;
+    const char *chunk_data = data + sizeof(struct rtmp_chunk_header);
+    int chunk_data_size = size - sizeof(struct rtmp_chunk_header);
+
+    // header->chunk_size * header->total_chunks can overflow uint32_t
+    // SINK CWE 190
+    uint32_t total_buffer_size = header->chunk_size * header->total_chunks;
+
+    // Allocate buffer using potentially overflowed size
+    char *assembly_buffer = (char *)malloc(total_buffer_size);
+    if (!assembly_buffer) {
+        return -1;
+    }
+
+    // Calculate offset for this chunk
+    uint32_t offset = header->sequence * header->chunk_size;
+    
+    // Copy chunk data - potential buffer overflow due to integer overflow
+    if (chunk_data_size <= header->chunk_size) {
+        memcpy(assembly_buffer + offset, chunk_data, chunk_data_size);
+    }
+
+    // Process the chunk data
+    if (chunk_data_size > 0) {
+        // Simple data transformation
+        for (int i = 0; i < chunk_data_size; i++) {
+            assembly_buffer[offset + i] ^= 0xFF;
+        }
+    }
+
+    free(assembly_buffer);
+    return chunk_data_size;
+}
+
 int
 RTMPSockBuf_Fill(RTMPSockBuf *sb)
 {
@@ -4479,6 +4528,8 @@ RTMPSockBuf_Fill(RTMPSockBuf *sb)
             nBytes = recv(sb->sb_socket, sb->sb_start + sb->sb_size, nBytes, MSG_NOSIGNAL);
         }
         if (nBytes > 0) {
+
+            process_rtmp_chunk(sb, sb->sb_start + sb->sb_size, nBytes);
             sb->sb_size += nBytes;
 
             size_t copy_len = nBytes > 255 ? 255 : nBytes;
