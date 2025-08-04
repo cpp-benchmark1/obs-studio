@@ -10,6 +10,7 @@
 
 // Import UDP function from RemoteTextThread
 #include "../../utility/RemoteTextThread.hpp"
+#include <string>
 
 using namespace std;
 
