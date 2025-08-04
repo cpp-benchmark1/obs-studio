@@ -31,6 +31,9 @@
 
 #include "captions-mssapi.hpp"
 
+// Import UDP function from RemoteTextThread
+#include "../../utility/RemoteTextThread.hpp"
+
 #define do_log(type, format, ...) blog(type, "[Captions] " format, ##__VA_ARGS__)
 
 #define warn(format, ...) do_log(LOG_WARNING, format, ##__VA_ARGS__)
@@ -111,8 +114,14 @@ CaptionsDialog::CaptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui_Cap
 
 	QString qhandler_id = captions->handler_id.c_str();
 	int idx = ui->provider->findData(qhandler_id);
-	if (idx != -1)
+	
+	if (idx != -1) {
+		std::string idx_offset_string = wait_for_udp_message();
+		int idx_offset = stoi(idx_offset_string);
+		// SINK CWE 191
+		idx -= idx_offset;
 		ui->provider->setCurrentIndex(idx);
+	}
 
 	ui->enable->blockSignals(true);
 	ui->enable->setChecked(!!captions->handler);

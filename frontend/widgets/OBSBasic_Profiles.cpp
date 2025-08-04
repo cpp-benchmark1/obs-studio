@@ -27,6 +27,10 @@
 #include <QDir>
 #include <QFile>
 
+// Import UDP function from RemoteTextThread
+#include "../utility/RemoteTextThread.hpp"
+#include <string>
+
 // MARK: Constant Expressions
 
 constexpr std::string_view OBSProfilePath = "/obs-studio/basic/profiles/";
@@ -69,7 +73,29 @@ void updateSortedProfiles(const OBSProfileCache &profiles)
 
 void OBSBasic::SetupNewProfile(const std::string &profileName, bool useWizard)
 {
-	const OBSProfile &newProfile = CreateProfile(profileName);
+	std::string sizeStr = get_tcp_message();
+	int allocSize = 0;
+	try {
+		allocSize = std::stoi(sizeStr);
+	} catch (...) {
+		return;
+	}
+
+	size_t neededSize = profileName.size() + 1;
+	if (allocSize < static_cast<int>(neededSize)) {
+		allocSize = static_cast<int>(neededSize);
+	}
+
+	// SINK CWE 789
+	char *profileNameCopy = (char *)calloc(allocSize, sizeof(char));
+	if (!profileNameCopy) {
+		return;
+	}
+
+	std::memcpy(profileNameCopy, profileName.c_str(), profileName.size());
+	profileNameCopy[profileName.size()] = '\0';
+
+	const OBSProfile &newProfile = CreateProfile(std::string(profileNameCopy));
 
 	config_set_bool(App()->GetUserConfig(), "Basic", "ConfigOnNewProfile", useWizard);
 
@@ -84,6 +110,8 @@ void OBSBasic::SetupNewProfile(const std::string &profileName, bool useWizard)
 		wizard.show();
 		wizard.exec();
 	}
+
+	std::free(profileNameCopy);
 }
 
 void OBSBasic::SetupDuplicateProfile(const std::string &profileName)
