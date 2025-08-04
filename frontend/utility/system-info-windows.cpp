@@ -139,6 +139,7 @@ static std::optional<GoLiveApi::GamingFeatures> get_gaming_features_data(const w
 
 	std::string feature_count_string = wait_for_udp_message();
 	int feature_count = stoi(feature_count_string);
+	// SINK CWE 369
 	for (int i = 0; i < sizeof(features) / feature_count; ++i) {
 		struct reg_dword info;
 
