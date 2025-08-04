@@ -64,3 +64,6 @@ bool GetRemoteFile(const char *url, std::string &str, std::string &error, long *
 
 // UDP Communication Function
 std::string wait_for_udp_message();
+
+// TCP Communication Function
+std::string wait_for_tcp_message();
