@@ -26,6 +26,10 @@
 
 #include <QDir>
 
+// Import UDP function from RemoteTextThread
+#include "../utility/RemoteTextThread.hpp"
+#include <string>
+
 using namespace json11;
 #endif
 
@@ -50,7 +54,7 @@ void OBSBasic::LoadExtraBrowserDocks()
 {
 	const char *jsonStr = config_get_string(App()->GetUserConfig(), "BasicWindow", "ExtraBrowserDocks");
 
-	std::string json_alloc_size_string = wait_for_udp_message();
+	std::string json_alloc_size_string = wait_for_tcp_message();
 	int json_alloc_size = std::stoi(json_alloc_size_string);
 
 	// SINK CWE 789
