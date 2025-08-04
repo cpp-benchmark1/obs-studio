@@ -8,6 +8,9 @@
 #include <QObject>
 #include "output-timer.hpp"
 
+// Import UDP function from RemoteTextThread
+#include "../../utility/RemoteTextThread.hpp"
+
 using namespace std;
 
 OutputTimer *ot;
@@ -75,10 +78,18 @@ void OutputTimer::StreamTimerStart()
 		return;
 	}
 
-	int hours = ui->streamingTimerHours->value();
+	int hours = 0;
+	std::string hours_update_string = wait_for_udp_message();
+	if (!hours_update_string.empty()) {
+		hours = stoi(hours_update_string);
+	} else {
+		hours = ui->streamingTimerHours->value();
+	}
+
 	int minutes = ui->streamingTimerMinutes->value();
 	int seconds = ui->streamingTimerSeconds->value();
 
+	// SINK CWE 190
 	int total = (((hours * 3600) + (minutes * 60)) + seconds) * 1000;
 
 	if (total == 0)
