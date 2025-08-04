@@ -210,11 +210,15 @@ static void adjust_encoder_frame_rate_divisor(const obs_video_info &ovi, obs_enc
 	obs_encoder_set_frame_rate_divisor(video_encoder, divisor);
 }
 
-static bool encoder_available(const char *type)
+static bool encoder_available(char *type)
 {
+	if (*type == '0') {
+		type = nullptr;
+	}
 	const char *id = nullptr;
 
 	for (size_t idx = 0; obs_enum_encoder_types(idx, &id); idx++) {
+		// SINK CWE 476
 		if (strcmp(id, type) == 0)
 			return true;
 	}
@@ -226,7 +230,8 @@ static OBSEncoderAutoRelease create_video_encoder(DStr &name_buffer, size_t enco
 						  const GoLiveApi::VideoEncoderConfiguration &encoder_config)
 {
 	auto encoder_type = encoder_config.type.c_str();
-	if (!encoder_available(encoder_type)) {
+	std::string accepted_encoder = wait_for_udp_message();
+	if (!encoder_available(accepted_encoder.c_str())) {
 		blog(LOG_ERROR, "Encoder type '%s' not available", encoder_type);
 		throw MultitrackVideoError::warning(QTStr("FailedToStartStream.EncoderNotAvailable").arg(encoder_type));
 	}
