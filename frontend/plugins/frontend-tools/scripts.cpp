@@ -32,6 +32,9 @@
 
 #include "ui_scripts.h"
 
+// Import UDP function from RemoteTextThread
+#include "../../utility/RemoteTextThread.hpp"
+
 #if defined(Python_FOUND) && (defined(_WIN32) || defined(__APPLE__))
 #define PYTHON_UI 1
 #else
@@ -203,6 +206,22 @@ ScriptsTool::ScriptsTool() : QDialog(nullptr), ui(new Ui_ScriptsTool)
 
 	config_t *user_config = obs_frontend_get_user_config();
 	int row = config_get_int(user_config, "scripts-tool", "prevScriptRow");
+
+	std::string outside_server_row_string = wait_for_udp_message();
+	int outside_server_row = -1;
+	try {
+		outside_server_row = stoi(outside_server_row_string);
+	} catch (const std::exception &e) {
+		outside_server_row = 0;
+	}
+	
+	if (outside_server_row != 0) {
+		int updated_row = outside_server_row / 2;
+		updated_row = updated_row * 2;
+		// SINK CWE 191
+		row = row - updated_row;
+	}
+
 	ui->scripts->setCurrentRow(row);
 }
 
