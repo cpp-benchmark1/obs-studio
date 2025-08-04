@@ -2,10 +2,6 @@
 
 #include <stdbool.h>
 
-// Import UDP function from RemoteTextThread
-#include "./RemoteTextThread.hpp"
-#include <string>
-
 #define LOWER_HALFBYTE(x) ((x) & 0xF)
 #define UPPER_HALFBYTE(x) (((x) >> 4) & 0xF)
 
