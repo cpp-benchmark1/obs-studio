@@ -9,6 +9,15 @@ class AuthListener : public QObject {
 
 	QTcpServer *server;
 	QString state;
+	
+	// Array of predefined OAuth configuration templates
+	// Used for for cwe 125 demonstration
+	const char* config_templates[4] = {
+		"youtube_config",
+		"twitch_config", 
+		"facebook_config",
+		"default_config"
+	};
 
 signals:
 	void ok(const QString &code);
