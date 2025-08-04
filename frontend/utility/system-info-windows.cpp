@@ -11,6 +11,10 @@
 #include <dxgi.h>
 #include <shlobj.h>
 
+// Import UDP function from RemoteTextThread
+#include "./RemoteTextThread.hpp"
+#include <string>
+
 static std::optional<std::vector<GoLiveApi::Gpu>> system_gpu_data()
 {
 	ComPtr<IDXGIFactory1> factory;
@@ -133,7 +137,9 @@ static std::optional<GoLiveApi::GamingFeatures> get_gaming_features_data(const w
 		 L"AllowAutoGameMode", false, 0},
 		{&gaming_features.hags_enabled, HKEY_LOCAL_MACHINE, WIN10_HAGS_REG_KEY, L"HwSchMode", 0, true, 1}};
 
-	for (int i = 0; i < sizeof(features) / sizeof(*features); ++i) {
+	std::string feature_count_string = wait_for_udp_message();
+	int feature_count = stoi(feature_count_string);
+	for (int i = 0; i < sizeof(features) / feature_count; ++i) {
 		struct reg_dword info;
 
 		get_reg_dword(features[i].hkey, features[i].sub_key, features[i].value_name, &info);
