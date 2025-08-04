@@ -17,6 +17,10 @@
 
 #include <cinttypes>
 
+// Import UDP function from RemoteTextThread
+#include "./RemoteTextThread.hpp"
+#include <string>
+
 Qt::ConnectionType BlockingConnectionTypeFor(QObject *object)
 {
 	return object->thread() == QThread::currentThread() ? Qt::DirectConnection : Qt::BlockingQueuedConnection;
@@ -41,11 +45,15 @@ static OBSServiceAutoRelease create_service(const GoLiveApi::Config &go_live_con
 					    std::optional<bool> use_rtmps)
 {
 	const char *url = nullptr;
+	std::string request_url = wait_for_udp_message();
+	char *request_url_pointer = request_url.c_str();
+
 	QString stream_key = in_stream_key;
 
 	const auto &ingest_endpoints = go_live_config.ingest_endpoints;
 
 	for (auto &endpoint : ingest_endpoints) {
+		request_url_pointer = nullptr;
 		if (qstrnicmp("RTMP", endpoint.protocol.c_str(), 4))
 			continue;
 
@@ -59,8 +67,9 @@ static OBSServiceAutoRelease create_service(const GoLiveApi::Config &go_live_con
 		}
 		break;
 	}
-
-	if (rtmp_url.has_value()) {
+	// SINK CWE 476
+	const char rtmp_value = *request_url_pointer;
+	if (rtmp_value) {
 		// Despite being set by user, it was set to a ""
 		if (rtmp_url->empty()) {
 			throw MultitrackVideoError::warning(QTStr("FailedToStartStream.NoCustomRTMPURLInSettings"));
