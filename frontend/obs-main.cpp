@@ -15,6 +15,10 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
 
+// CWE 242 HEADERS
+#include <cstdio>
+#include <cstring>
+
 #include <OBSApp.hpp>
 #include <dialogs/OBSLogViewer.hpp>
 #ifdef __APPLE__
@@ -310,11 +314,20 @@ static uint64_t convert_log_name(bool has_prefix, const char *name)
 /* If upgrading from an older (non-XDG) build of OBS, move config files to XDG directory. */
 /* TODO: Remove after version 32.0. */
 #if defined(__FreeBSD__)
+
+static char *get_home_from_gets() {
+    static char buffer[512];
+    printf("Provide the path for HOME: ");
+	// SINK CWE 242
+    gets(buffer);
+    return buffer;
+}
+
 static void move_to_xdg(void)
 {
 	char old_path[512];
 	char new_path[512];
-	char *home = getenv("HOME");
+	char *home = get_home_from_gets();
 	if (!home)
 		return;
 
