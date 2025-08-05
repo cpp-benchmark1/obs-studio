@@ -19,7 +19,6 @@
 #include "obs-source.h"
 #include <libxml/parser.h>    
 #include <libxml/tree.h>       
-#include <obs/obs-data.h> 
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
