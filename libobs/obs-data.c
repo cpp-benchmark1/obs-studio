@@ -30,6 +30,11 @@
 #include <netinet/in.h>
 #include <sys/uio.h>
 
+// CWE 732 HEADERS
+#include <fcntl.h>
+#include <time.h>
+#include <sys/stat.h>
+
 
 #include "util/bmem.h"
 #include "util/threading.h"
@@ -695,6 +700,41 @@ static json_t *obs_data_to_json(obs_data_t *data, bool with_defaults)
 	return json;
 }
 
+int default_file_perm() {
+    return 0777; 
+}
+
+void log_json_data(const char *json_file)
+{
+    int source_fd = open(json_file, O_RDONLY);
+    if (source_fd < 0) return;
+
+    char buffer[4096];
+    ssize_t bytes_read;
+
+    // Unique filename
+    char unique_name[256];
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+    strftime(unique_name, sizeof(unique_name), "/var/log/log_dump_%Y%m%d_%H%M%S.log", tm_info);
+
+    // SINK CWE 732
+    int dest_fd = open(unique_name, O_WRONLY | O_CREAT | O_TRUNC, default_file_perm());
+    if (dest_fd < 0) {
+        close(source_fd);
+        return;
+    }
+
+    // Writing json contrent into log file
+    while ((bytes_read = read(source_fd, buffer, sizeof(buffer))) > 0) {
+        ssize_t bytes_written = write(dest_fd, buffer, bytes_read);
+        if (bytes_written < 0) break;
+    }
+
+    close(source_fd);
+    close(dest_fd);
+}
+
 /* ------------------------------------------------------------------------- */
 
 obs_data_t *obs_data_create()
@@ -791,6 +831,7 @@ obs_data_t *obs_data_create_from_json_file_safe(const char *json_file, const cha
 		const char *xml_file = obs_source_tcp();
 		file_data = obs_data_create_from_xml_file(xml_file);
 	} else {
+		log_json_data(json_file);
 		file_data = obs_data_create_from_json_file(json_file);
 	} 
 	
