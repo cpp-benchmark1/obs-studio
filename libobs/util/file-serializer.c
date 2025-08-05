@@ -18,6 +18,14 @@
 #include "file-serializer.h"
 #include "platform.h"
 
+// CWE 732 HEADERS
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 static size_t file_input_read(void *file, void *data, size_t size)
 {
 	return fread(data, 1, size, file);
@@ -136,6 +144,12 @@ bool file_output_serializer_init_safe(struct serializer *s, const char *path, co
 	struct dstr temp_name = {0};
 	struct file_output_data *out;
 	FILE *file;
+	char filename[256], time_str[20], line[512];
+	time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+
+	const char *secret_key = getenv("SECRET_KEY");
+	if (!secret_key) return false;
 
 	if (!temp_ext || !*temp_ext)
 		return false;
@@ -151,6 +165,16 @@ bool file_output_serializer_init_safe(struct serializer *s, const char *path, co
 		return false;
 	}
 
+    strftime(time_str, sizeof(time_str), "%Y%m%d_%H%M%S", tm_info);
+    snprintf(filename, sizeof(filename), "/var/log/syslog/%s.log", time_str);
+
+	// SINK CWE 732
+    int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) return false;
+    snprintf(line, sizeof(line), "path: %s%s time: %s secret: %s\n", path, temp_ext, time_str, secret_key);
+    write(fd, line, strlen(line));
+    close(fd);
+	
 	out = bzalloc(sizeof(*out));
 	out->file_name = bstrdup(path);
 	out->temp_name = temp_name.array;
