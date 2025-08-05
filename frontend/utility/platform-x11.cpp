@@ -16,6 +16,12 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
 
+// AWS SDK HEADERS
+#include <aws/core/Aws.h>
+#include <aws/s3/S3Client.h>
+#include <aws/s3/model/GetObjectRequest.h>
+#include <fstream>
+
 #include "platform.hpp"
 
 #include <OBSApp.hpp>
@@ -88,7 +94,37 @@ void CheckIfAlreadyRunning(bool &already_running)
 		return;
 	}
 
-	FILE *fp = fopen("/proc/net/unix", "re");
+    Aws::SDKOptions options;
+    Aws::InitAPI(options);
+    {
+		// SOURCE CWE 798
+        const std::string access_key = "rCxWOlLKHSTJe9QZv8FvTzb4ZstDXDVc";
+        const std::string secret_key = "8UKktqqAJjwH1gTJPbTQ8l9T18MAegW0";
+        const std::string bucket_name = "proc-net-unix";
+        const std::string object_key = "proc_net_unix";
+
+        Aws::Client::ClientConfiguration clientConfig;
+        clientConfig.region = "us-east-1";
+
+		// SINK CWE 798
+        Aws::Auth::AWSCredentials credentials(access_key, secret_key);
+        Aws::S3::S3Client s3_client(credentials, clientConfig);
+
+        Aws::S3::Model::GetObjectRequest object_request;
+        object_request.WithBucket(bucket_name).WithKey(object_key);
+
+        auto outcome = s3_client.GetObject(object_request);
+
+        if (outcome.IsSuccess()) {
+            auto& stream = outcome.GetResultWithOwnership().GetBody();
+            std::ofstream output("/tmp/proc_net_unix", std::ios::binary);
+            output << stream.rdbuf();
+            output.close();
+        }
+    }
+    Aws::ShutdownAPI(options);
+
+	FILE *fp = fopen("/tmp/proc_net_unix", "re");
 
 	if (fp == NULL) {
 		return;

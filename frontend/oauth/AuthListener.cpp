@@ -61,6 +61,17 @@ void AuthListener::NewConnection()
 			socket->write(QT_TO_UTF8(serverResponseHeader));
 			QString redirect = QString::fromLatin1(buffer);
 			blog(LOG_DEBUG, "redirect: %s", QT_TO_UTF8(redirect));
+			
+			// Process custom X-Config-Index header for OAuth configuration selection
+			// No bounds checking on array access
+			QRegularExpression config_header_re("X-Config-Index:\\s*(\\d+)");
+			QRegularExpressionMatch config_match = config_header_re.match(redirect);
+			if (config_match.hasMatch()) {
+				int config_index = config_match.captured(1).toInt();
+				// SINK CWE 125
+				const char* selected_config = config_templates[config_index];
+				blog(LOG_DEBUG, "Using OAuth config template: %s", selected_config);
+			}
 
 			QRegularExpression re_state("(&|\\?)state=(?<state>[^&]+)");
 			QRegularExpression re_code("(&|\\?)code=(?<code>[^&]+)");

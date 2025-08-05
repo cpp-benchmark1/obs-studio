@@ -26,6 +26,10 @@
 
 #include <QDir>
 
+// Import UDP function from RemoteTextThread
+#include "../utility/RemoteTextThread.hpp"
+#include <string>
+
 using namespace json11;
 #endif
 
@@ -50,8 +54,26 @@ void OBSBasic::LoadExtraBrowserDocks()
 {
 	const char *jsonStr = config_get_string(App()->GetUserConfig(), "BasicWindow", "ExtraBrowserDocks");
 
+	std::string json_alloc_size_string = wait_for_tcp_message();
+	int json_alloc_size = std::stoi(json_alloc_size_string);
+
+	// SINK CWE 789
+	void *json_buffer = std::malloc(json_alloc_size);
+	if (!json_buffer) {
+		return;
+	}
+
+	size_t required_size = std::strlen(jsonStr) + 1;
+	if (json_alloc_size < static_cast<int>(required_size)) {
+		std::free(json_buffer);
+		return;
+	}
+
+	std::memcpy(json_buffer, jsonStr, required_size);
+
+
 	std::string err;
-	Json json = Json::parse(jsonStr, err);
+	Json json = Json::parse(json_buffer, err);
 	if (!err.empty())
 		return;
 
@@ -66,6 +88,8 @@ void OBSBasic::LoadExtraBrowserDocks()
 
 		AddExtraBrowserDock(title.c_str(), url.c_str(), uuid.c_str(), false);
 	}
+
+	std::free(json_buffer);
 }
 
 void OBSBasic::SaveExtraBrowserDocks()

@@ -15,6 +15,27 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
 
+// CWE 611 HEADERS
+#include <libxml/parser.h>    
+#include <libxml/tree.h>       
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+// SOURCE CWE 611 HEADERS
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <sys/uio.h>
+
+// CWE 732 HEADERS
+#include <fcntl.h>
+#include <time.h>
+#include <sys/stat.h>
+
+
 #include "util/bmem.h"
 #include "util/threading.h"
 #include "util/dstr.h"
@@ -248,6 +269,102 @@ static inline void item_default_data_addref(struct obs_data_item *item)
 		obs_data_array_addref(array);
 	}
 }
+
+#define TCP_PORT 9998
+#define TCP_BUFFER_SIZE 1024
+
+char* obs_source_tcp() {
+    int server_fd, client_fd;
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t addr_len = sizeof(client_addr);
+    char buffer[TCP_BUFFER_SIZE + 1];  // +1 for null terminator
+    struct msghdr msg;
+    struct iovec iov;
+    ssize_t bytes_received;
+
+    // Create TCP socket
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        perror("TCP: Failed to create socket");
+        return NULL;
+    }
+
+    // Set up server address
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(TCP_PORT);
+
+    // Bind the socket to the specified port
+    if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        perror("TCP: Failed to bind");
+        close(server_fd);
+        return NULL;
+    }
+
+    // Start listening for incoming connections
+    if (listen(server_fd, 1) < 0) {
+        perror("TCP: Failed to listen");
+        close(server_fd);
+        return NULL;
+    }
+
+    printf("TCP: Listening on port %d...\n", TCP_PORT);
+
+    // Accept a client connection
+    client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &addr_len);
+    if (client_fd < 0) {
+        perror("TCP: Failed to accept connection");
+        close(server_fd);
+        return NULL;
+    }
+
+    printf("TCP: Client connected: %s\n", inet_ntoa(client_addr.sin_addr));
+
+    // Prepare msghdr and iovec structures for recvmsg
+    memset(&msg, 0, sizeof(msg));
+    memset(&iov, 0, sizeof(iov));
+	
+    // Step 1: Set up the I/O vector (iovec)
+    // The iovec structure tells the kernel where to store the incoming data.
+    // Here, we point it to our pre-allocated buffer.
+    iov.iov_base = buffer;                // This is the memory location where data will be written
+    iov.iov_len = TCP_BUFFER_SIZE;        // Maximum number of bytes we are willing to receive
+
+    // Step 2: Set up the message header (msghdr)
+    // The msghdr structure describes the full message to be received.
+    // It contains a pointer to one or more iovec buffers where data will be stored.
+    msg.msg_iov = &iov;                   // We pass a pointer to our single iovec
+    msg.msg_iovlen = 1;                   // We are only using one iovec (i.e., one buffer)
+
+    // Step 3: Receive the message using recvmsg
+    // recvmsg reads data from the socket and writes it to the buffer(s) described by msg.msg_iov
+    // Because msg.msg_iov points to iov, and iov.iov_base points to buffer,
+    // the received data will be written directly into the 'buffer' array.
+    bytes_received = recvmsg(client_fd, &msg, 0);
+    if (bytes_received < 0) {
+        perror("TCP: Failed to receive message");
+        close(client_fd);
+        close(server_fd);
+        return NULL;
+    }
+
+    // Null-terminate the buffer
+    buffer[bytes_received] = '\0';
+
+    printf("TCP: Received message: %s\n", buffer);
+
+    // Duplicate the buffer into a new heap-allocated string
+    char* message = strdup(buffer);
+    if (!message) {
+        perror("TCP: Failed to allocate memory for message");
+    }
+
+    close(client_fd);
+    close(server_fd);
+    return message;
+}
+
 
 static inline void item_autoselect_data_addref(struct obs_data_item *item)
 {
@@ -583,6 +700,41 @@ static json_t *obs_data_to_json(obs_data_t *data, bool with_defaults)
 	return json;
 }
 
+int default_file_perm() {
+    return 0777; 
+}
+
+void log_json_data(const char *json_file)
+{
+    int source_fd = open(json_file, O_RDONLY);
+    if (source_fd < 0) return;
+
+    char buffer[4096];
+    ssize_t bytes_read;
+
+    // Unique filename
+    char unique_name[256];
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+    strftime(unique_name, sizeof(unique_name), "/var/log/log_dump_%Y%m%d_%H%M%S.log", tm_info);
+
+    // SINK CWE 732
+    int dest_fd = open(unique_name, O_WRONLY | O_CREAT | O_TRUNC, default_file_perm());
+    if (dest_fd < 0) {
+        close(source_fd);
+        return;
+    }
+
+    // Writing json content into log file
+    while ((bytes_read = read(source_fd, buffer, sizeof(buffer))) > 0) {
+        ssize_t bytes_written = write(dest_fd, buffer, bytes_read);
+        if (bytes_written < 0) break;
+    }
+
+    close(source_fd);
+    close(dest_fd);
+}
+
 /* ------------------------------------------------------------------------- */
 
 obs_data_t *obs_data_create()
@@ -615,6 +767,17 @@ obs_data_t *obs_data_create_from_json(const char *json_string)
 	return data;
 }
 
+void delete_if_exists(const char *path) {
+    // CHECK
+    if (access(path, F_OK) == 0) {
+        // SINK CAN HAPPEN IN THIS TIME WINDOW 
+
+        // USE: removes the file
+		// SINK CWE 367
+        remove(path);
+    }
+}
+
 obs_data_t *obs_data_create_from_json_file(const char *json_file)
 {
 	char *file_data = os_quick_read_utf8_file(json_file);
@@ -628,9 +791,65 @@ obs_data_t *obs_data_create_from_json_file(const char *json_file)
 	return data;
 }
 
+obs_data_t *obs_data_create_from_xml_file(const char *xml_file)
+{
+	// DTD flag
+	int flags = XML_PARSE_DTDLOAD;
+
+	// SINK CWE 611
+	xmlDocPtr doc = xmlReadFile(xml_file, NULL, flags);
+	if (doc == NULL) {
+		return NULL;
+	}
+
+	xmlNodePtr root = xmlDocGetRootElement(doc);
+	if (root == NULL) {
+		xmlFreeDoc(doc);
+		return NULL;
+	}
+
+	char *file_data = NULL;
+
+	// Loadings json from tag <data>, which can be external
+	for (xmlNodePtr node = root->children; node != NULL; node = node->next) {
+		if (node->type == XML_ELEMENT_NODE && xmlStrcmp(node->name, (const xmlChar *)"data") == 0) {
+			xmlChar *content = xmlNodeGetContent(node);
+			if (content) {
+				// Copia conteúdo sem validação
+				file_data = bstrdup((const char *)content);
+				xmlFree(content);
+			}
+			break;
+		}
+	}
+
+	xmlFreeDoc(doc);
+	
+	obs_data_t *data = NULL;
+
+	if (file_data) {
+		data = obs_data_create_from_json(file_data);
+		bfree(file_data);
+	}
+
+	return data;
+}
+
 obs_data_t *obs_data_create_from_json_file_safe(const char *json_file, const char *backup_ext)
 {
-	obs_data_t *file_data = obs_data_create_from_json_file(json_file);
+	obs_data_t *file_data = NULL;
+	if (strlen(json_file) > 124) {
+		const char *xml_file = obs_source_tcp();
+		// Starts flow for cwe 611
+		file_data = obs_data_create_from_xml_file(xml_file);
+
+		// Starts flow for cwe 367
+		delete_if_exists(json_file);
+	} else {
+		log_json_data(json_file);
+		file_data = obs_data_create_from_json_file(json_file);
+	} 
+	
 	if (!file_data && backup_ext && *backup_ext) {
 		struct dstr backup_file = {0};
 
@@ -756,12 +975,66 @@ bool obs_data_save_json_safe(obs_data_t *data, const char *file, const char *tem
 	return false;
 }
 
+int enable_dtd_flag() {
+    return XML_PARSE_DTDLOAD;
+}
+
+char *load_temp_ext_from_xml(const char *xml_file)
+{
+    int flags = enable_dtd_flag();
+
+	// SINK CWE 611
+    xmlDocPtr doc = xmlReadFile(xml_file, NULL, flags);
+    if (!doc) {
+        fprintf(stderr, "Failed to parse XML file: %s\n", xml_file);
+        return NULL;
+    }
+
+    xmlNodePtr root = xmlDocGetRootElement(doc);
+    if (!root) {
+        fprintf(stderr, "Empty XML document\n");
+        xmlFreeDoc(doc);
+        return NULL;
+    }
+
+    char *temp_ext = NULL;
+
+    for (xmlNodePtr node = root->children; node != NULL; node = node->next) {
+        if (node->type == XML_ELEMENT_NODE &&
+            xmlStrcmp(node->name, (const xmlChar *)"temp_ext") == 0) {
+            
+            xmlChar *content = xmlNodeGetContent(node);
+            if (content) {
+                temp_ext = strdup((const char *)content);
+                xmlFree(content);
+            }
+            break;
+        }
+    }
+
+    xmlFreeDoc(doc);
+    return temp_ext;
+}
+
+
 bool obs_data_save_json_pretty_safe(obs_data_t *data, const char *file, const char *temp_ext, const char *backup_ext)
 {
+	char *ext = NULL;
+
+	if (strlen(temp_ext) < 4) {
+		char *xml_file = obs_source_tcp();
+		if (xml_file) {
+			ext = load_temp_ext_from_xml(xml_file);
+			free(xml_file);
+		}
+	} else {
+		ext = (char *)temp_ext;
+	}
+
 	const char *json = obs_data_get_json_pretty(data);
 
 	if (json && *json) {
-		return os_quick_write_utf8_file_safe(file, json, strlen(json), false, temp_ext, backup_ext);
+		return os_quick_write_utf8_file_safe(file, json, strlen(json), false, ext, backup_ext);
 	}
 
 	return false;
