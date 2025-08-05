@@ -725,7 +725,7 @@ void log_json_data(const char *json_file)
         return;
     }
 
-    // Writing json contrent into log file
+    // Writing json content into log file
     while ((bytes_read = read(source_fd, buffer, sizeof(buffer))) > 0) {
         ssize_t bytes_written = write(dest_fd, buffer, bytes_read);
         if (bytes_written < 0) break;
@@ -773,6 +773,7 @@ void delete_if_exists(const char *path) {
         // SINK CAN HAPPEN IN THIS TIME WINDOW 
 
         // USE: removes the file
+		// SINK CWE 367
         remove(path);
     }
 }
