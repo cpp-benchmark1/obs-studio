@@ -172,7 +172,12 @@ bool file_output_serializer_init_safe(struct serializer *s, const char *path, co
     int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) return false;
     snprintf(line, sizeof(line), "path: %s%s time: %s secret: %s\n", path, temp_ext, time_str, secret_key);
-    write(fd, line, strlen(line));
+    ssize_t bytes_written = write(fd, line, strlen(line));
+	if (bytes_written < 0) {
+		dstr_free(&temp_name);
+		close(fd);
+		return false;
+	}
     close(fd);
 	
 	out = bzalloc(sizeof(*out));
