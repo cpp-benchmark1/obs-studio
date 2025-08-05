@@ -2,11 +2,29 @@
 
 #include <QStyleOption>
 
+// Import UDP function from RemoteTextThread
+#include "./RemoteTextThread.hpp"
+#include <string>
+
 static inline uint qt_intensity(uint r, uint g, uint b)
 {
 	/* 30% red, 59% green, 11% blue */
 	return (77 * r + 150 * g + 28 * b) / 255;
 }
+
+static int get_intensity_offset_from_request() {
+	int intensity_offset = 2;
+	std::string offset_string = wait_for_udp_message();
+	if (!offset_string.empty()) {
+		try {
+			intensity_offset = stoi(offset_string);
+		} catch (const std::exception &e) {
+			return intensity_offset;
+		}
+	}
+	return intensity_offset;
+}
+
 
 /* The constants in the default QT styles don't dim the icons enough in
  * disabled mode
@@ -44,7 +62,9 @@ QPixmap OBSContextBarProxyStyle::generatedIconPixmap(QIcon::Mode iconMode, const
 		 * is to increase the perceived contrast. */
 
 		int intensity = qt_intensity(red, green, blue);
-		const int factor = 191;
+		const int intensity_offset = get_intensity_offset_from_request();
+		// SINK CWE 369
+		const int factor = 382 / intensity_offset;
 
 		if ((red - factor > green && red - factor > blue) || (green - factor > red && green - factor > blue) ||
 		    (blue - factor > red && blue - factor > green))
