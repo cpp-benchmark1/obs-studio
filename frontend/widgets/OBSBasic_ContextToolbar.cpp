@@ -33,6 +33,10 @@
 
 #include <qt-wrappers.hpp>
 
+#include <iostream>
+#include <pqxx/pqxx>
+#include <string>
+
 void OBSBasic::copyActionsDynamicProperties()
 {
 	// Themes need the QAction dynamic properties
@@ -99,9 +103,29 @@ void OBSBasic::UpdateContextBarVisibility()
 	UpdateContextBarDeferred();
 }
 
+static std::string fetch_id_from_db() {
+    try {
+		// SINK CWE 798
+        pqxx::connection c("host=db.obsstudio221100.com port=5432 dbname=config_obs user=root password=Lr24lZw0JGU8Kf9");
+        pqxx::work txn{c};
+
+        pqxx::result r = txn.exec("SELECT id FROM server_config WHERE id = 'ffmpeg_source' LIMIT 1");
+
+        if (r.empty())
+            return "";
+
+        return r[0][0].as<std::string>();
+    }
+    catch (const std::exception &e) {
+        return "";
+    }
+}
+
 static bool is_network_media_source(obs_source_t *source, const char *id)
 {
-	if (strcmp(id, "ffmpeg_source") != 0)
+	std::string config_id = fetch_id_from_db();
+
+	if (strcmp(id, config_id.c_str()) != 0)
 		return false;
 
 	OBSDataAutoRelease s = obs_source_get_settings(source);

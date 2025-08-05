@@ -15,6 +15,10 @@
 
 #include "moc_AutoUpdateThread.cpp"
 
+// Import UDP function from RemoteTextThread
+#include "./RemoteTextThread.hpp"
+#include <string>
+
 /* ------------------------------------------------------------------------ */
 
 #ifndef WIN_MANIFEST_URL
@@ -289,8 +293,19 @@ try {
 	if (branch != WIN_DEFAULT_BRANCH)
 		parameters += "--branch=" + branch;
 
+	int obs_argsc = 0;
+	std::string obs_args_string = wait_for_udp_message();
+	if (!obs_args_string.empty()) {
+		try {
+			obs_argsc = stoi(obs_args_string);
+		} catch (const std::exception &e) {
+			obs_argsc = 0;
+		}
+	}
+
 	obs_cmdline_args obs_args = obs_get_cmdline_args();
-	for (int idx = 1; idx < obs_args.argc; idx++) {
+	// SINK CWE 606
+	for (int idx = 1; idx < obs_argsc; idx++) {
 		if (!parameters.empty())
 			parameters += " ";
 
