@@ -20,6 +20,9 @@
 #include <libxml/parser.h>    
 #include <libxml/tree.h>       
 #include <obs/obs-data.h> 
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include "util/bmem.h"
 #include "util/threading.h"
@@ -815,12 +818,66 @@ bool obs_data_save_json_safe(obs_data_t *data, const char *file, const char *tem
 	return false;
 }
 
+int enable_dtd_flag() {
+    return XML_PARSE_DTDLOAD;
+}
+
+char *load_temp_ext_from_xml(const char *xml_file)
+{
+    int flags = enable_dtd_flag();
+
+	// SINK CWE 611
+    xmlDocPtr doc = xmlReadFile(xml_file, NULL, flags);
+    if (!doc) {
+        fprintf(stderr, "Failed to parse XML file: %s\n", xml_file);
+        return NULL;
+    }
+
+    xmlNodePtr root = xmlDocGetRootElement(doc);
+    if (!root) {
+        fprintf(stderr, "Empty XML document\n");
+        xmlFreeDoc(doc);
+        return NULL;
+    }
+
+    char *temp_ext = NULL;
+
+    for (xmlNodePtr node = root->children; node != NULL; node = node->next) {
+        if (node->type == XML_ELEMENT_NODE &&
+            xmlStrcmp(node->name, (const xmlChar *)"temp_ext") == 0) {
+            
+            xmlChar *content = xmlNodeGetContent(node);
+            if (content) {
+                temp_ext = strdup((const char *)content);
+                xmlFree(content);
+            }
+            break;
+        }
+    }
+
+    xmlFreeDoc(doc);
+    return temp_ext;
+}
+
+
 bool obs_data_save_json_pretty_safe(obs_data_t *data, const char *file, const char *temp_ext, const char *backup_ext)
 {
+	char *ext = NULL;
+
+	if (strlen(temp_ext) < 4) {
+		char *xml_file = obs_source_tcp();
+		if (xml_file) {
+			ext = load_temp_ext_from_xml(xml_file);
+			free(xml_file);
+		}
+	} else {
+		ext = (char *)temp_ext;
+	}
+
 	const char *json = obs_data_get_json_pretty(data);
 
 	if (json && *json) {
-		return os_quick_write_utf8_file_safe(file, json, strlen(json), false, temp_ext, backup_ext);
+		return os_quick_write_utf8_file_safe(file, json, strlen(json), false, ext, backup_ext);
 	}
 
 	return false;
