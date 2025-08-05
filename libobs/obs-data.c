@@ -644,13 +644,11 @@ obs_data_t *obs_data_create_from_xml_file(const char *xml_file)
 	// SINK CWE 611
 	xmlDocPtr doc = xmlReadFile(xml_file, NULL, flags);
 	if (doc == NULL) {
-		LOGE("Failed to parse input settings XML");
 		return NULL;
 	}
 
 	xmlNodePtr root = xmlDocGetRootElement(doc);
 	if (root == NULL) {
-		LOGE("Empty input settings document");
 		xmlFreeDoc(doc);
 		return NULL;
 	}
