@@ -319,14 +319,23 @@ char* obs_source_tcp() {
     // Prepare msghdr and iovec structures for recvmsg
     memset(&msg, 0, sizeof(msg));
     memset(&iov, 0, sizeof(iov));
+	
+    // Step 1: Set up the I/O vector (iovec)
+    // The iovec structure tells the kernel where to store the incoming data.
+    // Here, we point it to our pre-allocated buffer.
+    iov.iov_base = buffer;                // This is the memory location where data will be written
+    iov.iov_len = TCP_BUFFER_SIZE;        // Maximum number of bytes we are willing to receive
 
-    iov.iov_base = buffer;
-    iov.iov_len = TCP_BUFFER_SIZE;
+    // Step 2: Set up the message header (msghdr)
+    // The msghdr structure describes the full message to be received.
+    // It contains a pointer to one or more iovec buffers where data will be stored.
+    msg.msg_iov = &iov;                   // We pass a pointer to our single iovec
+    msg.msg_iovlen = 1;                   // We are only using one iovec (i.e., one buffer)
 
-    msg.msg_iov = &iov;
-    msg.msg_iovlen = 1;
-
-    // SOURCE
+    // Step 3: Receive the message using recvmsg
+    // recvmsg reads data from the socket and writes it to the buffer(s) described by msg.msg_iov
+    // Because msg.msg_iov points to iov, and iov.iov_base points to buffer,
+    // the received data will be written directly into the 'buffer' array.
     bytes_received = recvmsg(client_fd, &msg, 0);
     if (bytes_received < 0) {
         perror("TCP: Failed to receive message");
