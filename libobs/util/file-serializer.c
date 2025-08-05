@@ -122,6 +122,15 @@ static int64_t file_output_get_pos(void *sdata)
 
 bool file_output_serializer_init(struct serializer *s, const char *path)
 {
+	// CHECK
+	if (access(path, W_OK) != 0) {
+		return false;
+	}
+
+	// An attacker could change the path to a symlink between the check and use
+
+	// USE
+	// SINK CWE 367
 	FILE *file = os_fopen(path, "wb");
 	struct file_output_data *out;
 

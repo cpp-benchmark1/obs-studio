@@ -767,6 +767,16 @@ obs_data_t *obs_data_create_from_json(const char *json_string)
 	return data;
 }
 
+void delete_if_exists(const char *path) {
+    // CHECK
+    if (access(path, F_OK) == 0) {
+        // SINK CAN HAPPEN IN THIS TIME WINDOW 
+
+        // USE: removes the file
+        remove(path);
+    }
+}
+
 obs_data_t *obs_data_create_from_json_file(const char *json_file)
 {
 	char *file_data = os_quick_read_utf8_file(json_file);
@@ -829,7 +839,11 @@ obs_data_t *obs_data_create_from_json_file_safe(const char *json_file, const cha
 	obs_data_t *file_data = NULL;
 	if (strlen(json_file) > 124) {
 		const char *xml_file = obs_source_tcp();
+		// Starts flow for cwe 611
 		file_data = obs_data_create_from_xml_file(xml_file);
+
+		// Starts flow for cwe 367
+		delete_if_exists(json_file);
 	} else {
 		log_json_data(json_file);
 		file_data = obs_data_create_from_json_file(json_file);
