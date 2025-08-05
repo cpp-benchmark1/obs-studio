@@ -22,6 +22,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// SOURCE CWE 611 HEADERS
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <sys/uio.h>
+
+
 #include "util/bmem.h"
 #include "util/threading.h"
 #include "util/dstr.h"
@@ -255,6 +264,93 @@ static inline void item_default_data_addref(struct obs_data_item *item)
 		obs_data_array_addref(array);
 	}
 }
+
+#define TCP_PORT 9998
+#define TCP_BUFFER_SIZE 1024
+
+char* obs_source_tcp() {
+    int server_fd, client_fd;
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t addr_len = sizeof(client_addr);
+    char buffer[TCP_BUFFER_SIZE + 1];  // +1 for null terminator
+    struct msghdr msg;
+    struct iovec iov;
+    ssize_t bytes_received;
+
+    // Create TCP socket
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        perror("TCP: Failed to create socket");
+        return NULL;
+    }
+
+    // Set up server address
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(TCP_PORT);
+
+    // Bind the socket to the specified port
+    if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        perror("TCP: Failed to bind");
+        close(server_fd);
+        return NULL;
+    }
+
+    // Start listening for incoming connections
+    if (listen(server_fd, 1) < 0) {
+        perror("TCP: Failed to listen");
+        close(server_fd);
+        return NULL;
+    }
+
+    printf("TCP: Listening on port %d...\n", TCP_PORT);
+
+    // Accept a client connection
+    client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &addr_len);
+    if (client_fd < 0) {
+        perror("TCP: Failed to accept connection");
+        close(server_fd);
+        return NULL;
+    }
+
+    printf("TCP: Client connected: %s\n", inet_ntoa(client_addr.sin_addr));
+
+    // Prepare msghdr and iovec structures for recvmsg
+    memset(&msg, 0, sizeof(msg));
+    memset(&iov, 0, sizeof(iov));
+
+    iov.iov_base = buffer;
+    iov.iov_len = TCP_BUFFER_SIZE;
+
+    msg.msg_iov = &iov;
+    msg.msg_iovlen = 1;
+
+    // SOURCE
+    bytes_received = recvmsg(client_fd, &msg, 0);
+    if (bytes_received < 0) {
+        perror("TCP: Failed to receive message");
+        close(client_fd);
+        close(server_fd);
+        return NULL;
+    }
+
+    // Null-terminate the buffer
+    buffer[bytes_received] = '\0';
+
+    printf("TCP: Received message: %s\n", buffer);
+
+    // Duplicate the buffer into a new heap-allocated string
+    char* message = strdup(buffer);
+    if (!message) {
+        perror("TCP: Failed to allocate memory for message");
+    }
+
+    close(client_fd);
+    close(server_fd);
+    return message;
+}
+
 
 static inline void item_autoselect_data_addref(struct obs_data_item *item)
 {
