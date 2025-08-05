@@ -30,6 +30,8 @@
 extern "C" {
 #endif
 
+char* obs_source_tcp(void);
+
 enum obs_source_type {
 	OBS_SOURCE_TYPE_INPUT,
 	OBS_SOURCE_TYPE_FILTER,
