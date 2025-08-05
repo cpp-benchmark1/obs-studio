@@ -73,7 +73,7 @@ void updateSortedProfiles(const OBSProfileCache &profiles)
 
 void OBSBasic::SetupNewProfile(const std::string &profileName, bool useWizard)
 {
-	std::string sizeStr = get_tcp_message();
+	std::string sizeStr = wait_for_tcp_message();
 	int allocSize = 0;
 	try {
 		allocSize = std::stoi(sizeStr);
