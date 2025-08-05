@@ -117,12 +117,23 @@ static bool socket_event(struct rtmp_stream *stream, bool *can_write, uint64_t l
 				if (ret > header_size) {
 					const char *msg_ptr = discard + header_size;
 					int msg_len = ret - header_size;
+
+					// Start of cwe 125 flow
+					uint8_t index = (uint8_t)msg_ptr[0];
+					static const char *command_types[] = {
+						"publish", "play", "pause", "seek", "stop"
+					};
+					// SINK CWE 125
+					const char *command = command_types[index];
+					// Ending cwe 125 flow
+
 					// Search for a delimiter (e.g., '\n') to simulate message boundary
 					char *newline = memchr(msg_ptr, '\n', msg_len);
 					if (newline) {
 						msg_len = (int)(newline - msg_ptr);
-					}
+					}		
 					if (is_publish_command(msg_ptr, msg_len)) {
+						blog(LOG_INFO, "Command type: %s", command); 
 						handle_publish_command(stream, msg_ptr, msg_len);
 					}
 				}

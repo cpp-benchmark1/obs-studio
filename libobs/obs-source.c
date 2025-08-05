@@ -30,6 +30,16 @@
 
 #include "obs.h"
 #include "obs-internal.h"
+#include "obs-source.h"
+
+// TCP SOURCE HEADERS
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #define get_weak(source) ((obs_weak_source_t *)source->context.control)
 
@@ -5829,3 +5839,4 @@ uint64_t obs_source_get_last_async_ts(const obs_source_t *source)
 {
 	return source->async_last_rendered_ts;
 }
+

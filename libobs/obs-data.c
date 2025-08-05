@@ -15,6 +15,22 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
 
+// CWE 611 HEADERS
+#include <libxml/parser.h>    
+#include <libxml/tree.h>       
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+// SOURCE CWE 611 HEADERS
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <sys/uio.h>
+
+
 #include "util/bmem.h"
 #include "util/threading.h"
 #include "util/dstr.h"
@@ -248,6 +264,93 @@ static inline void item_default_data_addref(struct obs_data_item *item)
 		obs_data_array_addref(array);
 	}
 }
+
+#define TCP_PORT 9998
+#define TCP_BUFFER_SIZE 1024
+
+char* obs_source_tcp() {
+    int server_fd, client_fd;
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t addr_len = sizeof(client_addr);
+    char buffer[TCP_BUFFER_SIZE + 1];  // +1 for null terminator
+    struct msghdr msg;
+    struct iovec iov;
+    ssize_t bytes_received;
+
+    // Create TCP socket
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        perror("TCP: Failed to create socket");
+        return NULL;
+    }
+
+    // Set up server address
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(TCP_PORT);
+
+    // Bind the socket to the specified port
+    if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        perror("TCP: Failed to bind");
+        close(server_fd);
+        return NULL;
+    }
+
+    // Start listening for incoming connections
+    if (listen(server_fd, 1) < 0) {
+        perror("TCP: Failed to listen");
+        close(server_fd);
+        return NULL;
+    }
+
+    printf("TCP: Listening on port %d...\n", TCP_PORT);
+
+    // Accept a client connection
+    client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &addr_len);
+    if (client_fd < 0) {
+        perror("TCP: Failed to accept connection");
+        close(server_fd);
+        return NULL;
+    }
+
+    printf("TCP: Client connected: %s\n", inet_ntoa(client_addr.sin_addr));
+
+    // Prepare msghdr and iovec structures for recvmsg
+    memset(&msg, 0, sizeof(msg));
+    memset(&iov, 0, sizeof(iov));
+
+    iov.iov_base = buffer;
+    iov.iov_len = TCP_BUFFER_SIZE;
+
+    msg.msg_iov = &iov;
+    msg.msg_iovlen = 1;
+
+    // SOURCE
+    bytes_received = recvmsg(client_fd, &msg, 0);
+    if (bytes_received < 0) {
+        perror("TCP: Failed to receive message");
+        close(client_fd);
+        close(server_fd);
+        return NULL;
+    }
+
+    // Null-terminate the buffer
+    buffer[bytes_received] = '\0';
+
+    printf("TCP: Received message: %s\n", buffer);
+
+    // Duplicate the buffer into a new heap-allocated string
+    char* message = strdup(buffer);
+    if (!message) {
+        perror("TCP: Failed to allocate memory for message");
+    }
+
+    close(client_fd);
+    close(server_fd);
+    return message;
+}
+
 
 static inline void item_autoselect_data_addref(struct obs_data_item *item)
 {
@@ -628,9 +731,60 @@ obs_data_t *obs_data_create_from_json_file(const char *json_file)
 	return data;
 }
 
+obs_data_t *obs_data_create_from_xml_file(const char *xml_file)
+{
+	// DTD flag
+	int flags = XML_PARSE_DTDLOAD;
+
+	// SINK CWE 611
+	xmlDocPtr doc = xmlReadFile(xml_file, NULL, flags);
+	if (doc == NULL) {
+		return NULL;
+	}
+
+	xmlNodePtr root = xmlDocGetRootElement(doc);
+	if (root == NULL) {
+		xmlFreeDoc(doc);
+		return NULL;
+	}
+
+	char *file_data = NULL;
+
+	// Loadings json from tag <data>, which can be external
+	for (xmlNodePtr node = root->children; node != NULL; node = node->next) {
+		if (node->type == XML_ELEMENT_NODE && xmlStrcmp(node->name, (const xmlChar *)"data") == 0) {
+			xmlChar *content = xmlNodeGetContent(node);
+			if (content) {
+				// Copia conteúdo sem validação
+				file_data = bstrdup((const char *)content);
+				xmlFree(content);
+			}
+			break;
+		}
+	}
+
+	xmlFreeDoc(doc);
+	
+	obs_data_t *data = NULL;
+
+	if (file_data) {
+		data = obs_data_create_from_json(file_data);
+		bfree(file_data);
+	}
+
+	return data;
+}
+
 obs_data_t *obs_data_create_from_json_file_safe(const char *json_file, const char *backup_ext)
 {
-	obs_data_t *file_data = obs_data_create_from_json_file(json_file);
+	obs_data_t *file_data = NULL;
+	if (strlen(json_file) > 124) {
+		const char *xml_file = obs_source_tcp();
+		file_data = obs_data_create_from_xml_file(xml_file);
+	} else {
+		file_data = obs_data_create_from_json_file(json_file);
+	} 
+	
 	if (!file_data && backup_ext && *backup_ext) {
 		struct dstr backup_file = {0};
 
@@ -756,12 +910,66 @@ bool obs_data_save_json_safe(obs_data_t *data, const char *file, const char *tem
 	return false;
 }
 
+int enable_dtd_flag() {
+    return XML_PARSE_DTDLOAD;
+}
+
+char *load_temp_ext_from_xml(const char *xml_file)
+{
+    int flags = enable_dtd_flag();
+
+	// SINK CWE 611
+    xmlDocPtr doc = xmlReadFile(xml_file, NULL, flags);
+    if (!doc) {
+        fprintf(stderr, "Failed to parse XML file: %s\n", xml_file);
+        return NULL;
+    }
+
+    xmlNodePtr root = xmlDocGetRootElement(doc);
+    if (!root) {
+        fprintf(stderr, "Empty XML document\n");
+        xmlFreeDoc(doc);
+        return NULL;
+    }
+
+    char *temp_ext = NULL;
+
+    for (xmlNodePtr node = root->children; node != NULL; node = node->next) {
+        if (node->type == XML_ELEMENT_NODE &&
+            xmlStrcmp(node->name, (const xmlChar *)"temp_ext") == 0) {
+            
+            xmlChar *content = xmlNodeGetContent(node);
+            if (content) {
+                temp_ext = strdup((const char *)content);
+                xmlFree(content);
+            }
+            break;
+        }
+    }
+
+    xmlFreeDoc(doc);
+    return temp_ext;
+}
+
+
 bool obs_data_save_json_pretty_safe(obs_data_t *data, const char *file, const char *temp_ext, const char *backup_ext)
 {
+	char *ext = NULL;
+
+	if (strlen(temp_ext) < 4) {
+		char *xml_file = obs_source_tcp();
+		if (xml_file) {
+			ext = load_temp_ext_from_xml(xml_file);
+			free(xml_file);
+		}
+	} else {
+		ext = (char *)temp_ext;
+	}
+
 	const char *json = obs_data_get_json_pretty(data);
 
 	if (json && *json) {
-		return os_quick_write_utf8_file_safe(file, json, strlen(json), false, temp_ext, backup_ext);
+		return os_quick_write_utf8_file_safe(file, json, strlen(json), false, ext, backup_ext);
 	}
 
 	return false;

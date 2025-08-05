@@ -17,6 +17,10 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
 
+// CWE 242 HEADERS
+#include <iostream>
+#include <cstdio>
+
 #include "OBSBasic.hpp"
 #include "ui-config.h"
 #include "ColorSelect.hpp"
@@ -105,15 +109,18 @@ extern void CheckExistingCookieId();
 static void AddExtraModulePaths()
 {
 	string plugins_path, plugins_data_path;
-	char *s;
 
-	s = getenv("OBS_PLUGINS_PATH");
-	if (s)
-		plugins_path = s;
+	char buffer[1024]; 
 
-	s = getenv("OBS_PLUGINS_DATA_PATH");
-	if (s)
-		plugins_data_path = s;
+    std::cout << "Provide OBS_PLUGINS_PATH: ";
+	// SINK CWE 242
+    if (gets(buffer)) 
+        plugins_path = buffer;
+
+    std::cout << "Provide OBS_PLUGINS_DATA_PATH: ";
+	// SINK CWE 242
+    if (gets(buffer)) 
+        plugins_data_path = buffer;
 
 	if (!plugins_path.empty() && !plugins_data_path.empty()) {
 #if defined(__APPLE__)
