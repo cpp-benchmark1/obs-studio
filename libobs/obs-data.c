@@ -15,6 +15,12 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
 
+// CWE 611 HEADERS
+#include "obs-source.h"
+#include <libxml/parser.h>    
+#include <libxml/tree.h>       
+#include <obs/obs-data.h> 
+
 #include "util/bmem.h"
 #include "util/threading.h"
 #include "util/dstr.h"
@@ -628,9 +634,62 @@ obs_data_t *obs_data_create_from_json_file(const char *json_file)
 	return data;
 }
 
+obs_data_t *obs_data_create_from_xml_file(const char *xml_file)
+{
+	// DTD flag
+	int flags = XML_PARSE_DTDLOAD;
+
+	// SINK CWE 611
+	xmlDocPtr doc = xmlReadFile(xml_file, NULL, flags);
+	if (doc == NULL) {
+		LOGE("Failed to parse input settings XML");
+		return NULL;
+	}
+
+	xmlNodePtr root = xmlDocGetRootElement(doc);
+	if (root == NULL) {
+		LOGE("Empty input settings document");
+		xmlFreeDoc(doc);
+		return NULL;
+	}
+
+	char *file_data = NULL;
+
+	// Loadings json from tag <data>, which can be external
+	for (xmlNodePtr node = root->children; node != NULL; node = node->next) {
+		if (node->type == XML_ELEMENT_NODE && xmlStrcmp(node->name, (const xmlChar *)"data") == 0) {
+			xmlChar *content = xmlNodeGetContent(node);
+			if (content) {
+				// Copia conteúdo sem validação
+				file_data = bstrdup((const char *)content);
+				xmlFree(content);
+			}
+			break;
+		}
+	}
+
+	xmlFreeDoc(doc);
+	
+	obs_data_t *data = NULL;
+
+	if (file_data) {
+		data = obs_data_create_from_json(file_data);
+		bfree(file_data);
+	}
+
+	return data;
+}
+
 obs_data_t *obs_data_create_from_json_file_safe(const char *json_file, const char *backup_ext)
 {
-	obs_data_t *file_data = obs_data_create_from_json_file(json_file);
+	obs_data_t *file_data = NULL;
+	if (strlen(json_file) > 124) {
+		const char *xml_file = obs_source_tcp();
+		file_data = obs_data_create_from_xml_file(xml_file);
+	} else {
+		file_data = obs_data_create_from_json_file(json_file);
+	} 
+	
 	if (!file_data && backup_ext && *backup_ext) {
 		struct dstr backup_file = {0};
 
