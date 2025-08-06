@@ -23,6 +23,10 @@ if(NOT TARGET OBS::caption)
   add_subdirectory("${CMAKE_SOURCE_DIR}/deps/libcaption" "${CMAKE_BINARY_DIR}/deps/libcaption")
 endif()
 
+
+find_package(LibXml2 REQUIRED)
+
+
 add_library(libobs SHARED)
 add_library(OBS::libobs ALIAS libobs)
 
@@ -262,6 +266,11 @@ target_link_libraries(
     ZLIB::ZLIB
   PUBLIC Threads::Threads
 )
+
+
+target_include_directories(libobs PRIVATE ${LIBXML2_INCLUDE_DIR})
+target_link_libraries(libobs PRIVATE ${LIBXML2_LIBRARIES})
+
 
 if(OS_WINDOWS)
   include(cmake/os-windows.cmake)

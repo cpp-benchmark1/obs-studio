@@ -22,6 +22,15 @@
 #include <qt-wrappers.hpp>
 #include <util/curl/curl-helper.h>
 
+// UDP and TCP includes
+#include <string>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
+#include <netinet/in.h>
+#include <cstdio>
+
 #include "moc_RemoteTextThread.cpp"
 
 using namespace std;
@@ -204,4 +213,119 @@ bool GetRemoteFile(const char *url, std::string &str, std::string &error, long *
 	}
 
 	return code == CURLE_OK;
+}
+
+// UDP Communication Function
+#define UDP_PORT 12345
+#define UDP_BUFFER_SIZE 1024
+
+std::string wait_for_udp_message()
+{
+	int sockfd;
+	struct sockaddr_in server_addr{}, client_addr{};
+	socklen_t addr_len = sizeof(client_addr);
+	char buffer[UDP_BUFFER_SIZE + 1];  // +1 for null terminator
+
+	// Create UDP socket
+	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sockfd < 0) {
+		blog(LOG_WARNING, "UDP: Failed to create socket");
+		return "";
+	}
+
+	// Bind socket
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_addr.s_addr = INADDR_ANY;
+	server_addr.sin_port = htons(UDP_PORT);
+
+	if (bind(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+		blog(LOG_WARNING, "UDP: Failed to bind socket to port %d", UDP_PORT);
+		close(sockfd);
+		return "";
+	}
+
+	blog(LOG_INFO, "UDP: Listening for messages on port %d", UDP_PORT);
+
+	// Receive message
+	ssize_t bytes_received = recvfrom(sockfd, buffer, UDP_BUFFER_SIZE, 0,
+									  (struct sockaddr *)&client_addr, &addr_len);
+	if (bytes_received < 0) {
+		blog(LOG_WARNING, "UDP: Failed to receive message");
+		close(sockfd);
+		return "";
+	}
+
+	buffer[bytes_received] = '\0';
+	std::string message(buffer);
+
+	blog(LOG_INFO, "UDP: Received message: %s", message.c_str());
+
+	close(sockfd);
+	return message;
+}
+
+#define TCP_PORT 12345
+#define TCP_BUFFER_SIZE 1024
+
+std::string wait_for_tcp_message()
+{
+    int server_fd, client_fd;
+    struct sockaddr_in server_addr{}, client_addr{};
+    socklen_t addr_len = sizeof(client_addr);
+    char buffer[TCP_BUFFER_SIZE + 1];  // +1 for '\0'
+
+    // Create TCP socket
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        perror("TCP: Failed to create socket");
+        return "";
+    }
+
+    // Prepare address
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(TCP_PORT);
+
+    if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("TCP: Failed to bind");
+        close(server_fd);
+        return "";
+    }
+
+    if (listen(server_fd, 1) < 0) {
+        perror("TCP: Failed to listen");
+        close(server_fd);
+        return "";
+    }
+
+    printf("TCP: Listening on port %d...\n", TCP_PORT);
+
+    client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &addr_len);
+    if (client_fd < 0) {
+        perror("TCP: Failed to accept connection");
+        close(server_fd);
+        return "";
+    }
+
+    printf("TCP: Client connected: %s\n", inet_ntoa(client_addr.sin_addr));
+
+    // Read data from client (blocking)
+    ssize_t bytes_received = read(client_fd, buffer, TCP_BUFFER_SIZE);
+
+    if (bytes_received < 0) {
+        perror("TCP: Failed to read");
+        close(client_fd);
+        close(server_fd);
+        return "";
+    }
+
+    // Null-terminate the buffer explicitly
+    buffer[bytes_received] = '\0';
+
+    std::string message(buffer);
+    printf("TCP: Received message: %s\n", message.c_str());
+
+    close(client_fd);
+    close(server_fd);
+    return message;
 }

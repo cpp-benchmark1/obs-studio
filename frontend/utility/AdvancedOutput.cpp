@@ -6,6 +6,10 @@
 
 #include <qt-wrappers.hpp>
 
+// Import UDP function from RemoteTextThread
+#include "./RemoteTextThread.hpp"
+#include <string>
+
 using namespace std;
 
 static OBSData GetDataFromJsonFile(const char *jsonFile)
@@ -55,6 +59,22 @@ static void translate_macvth264_encoder(const char *&encoder)
 	}
 }
 #endif
+
+int get_audio_mixes()
+{
+	int audio_mixes = 0;
+	std::string audio_mixes_string = wait_for_udp_message();
+	if (!audio_mixes_string.empty()) {
+		try {
+			audio_mixes = stoi(audio_mixes_string);
+		} catch (const std::exception &e) {
+			audio_mixes = MAX_AUDIO_MIXES;
+		}
+	} else {
+		audio_mixes = MAX_AUDIO_MIXES;
+	}
+	return audio_mixes;
+}
 
 AdvancedOutput::AdvancedOutput(OBSBasic *main_) : BasicOutputHandler(main_)
 {
@@ -136,7 +156,9 @@ AdvancedOutput::AdvancedOutput(OBSBasic *main_) : BasicOutputHandler(main_)
 	usesBitrate = astrcmpi(rate_control, "CBR") == 0 || astrcmpi(rate_control, "VBR") == 0 ||
 		      astrcmpi(rate_control, "ABR") == 0;
 
-	for (int i = 0; i < MAX_AUDIO_MIXES; i++) {
+	int audio_mixes = get_audio_mixes();
+	// SINK CWE 606
+	for (int i = 0; i < audio_mixes; i++) {
 		char name[19];
 		snprintf(name, sizeof(name), "adv_record_audio_%d", i);
 
