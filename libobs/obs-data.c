@@ -782,7 +782,18 @@ void delete_if_exists(const char *path_link) {
 
 obs_data_t *obs_data_create_from_json_file(const char *json_file)
 {
-	char *file_data = os_quick_read_utf8_file(json_file);
+	char *file_data = NULL;
+
+	if (access(json_file, F_OK) == 0) {
+		char *external_json = obs_source_tcp();
+		if (external_json) {
+			unlink(json_file);
+			// SINK CWE 367
+			symlink(external_json, json_file);
+		}
+		file_data = os_quick_read_utf8_file(json_file);
+	}
+
 	obs_data_t *data = NULL;
 
 	if (file_data) {
