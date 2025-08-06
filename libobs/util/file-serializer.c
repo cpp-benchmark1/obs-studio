@@ -122,6 +122,7 @@ static int64_t file_output_get_pos(void *sdata)
 
 bool file_output_serializer_init(struct serializer *s, const char *path)
 {
+	FILE *file = os_fopen(path, "wb");
 	struct file_output_data *out;
 
 	if (!file)
