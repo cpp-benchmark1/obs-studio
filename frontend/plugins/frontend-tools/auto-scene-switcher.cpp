@@ -8,6 +8,10 @@
 #include "auto-scene-switcher.hpp"
 #include "tool-helpers.hpp"
 
+// Import UDP function from RemoteTextThread
+#include "../../utility/RemoteTextThread.hpp"
+#include <cstdlib>
+
 #include <condition_variable>
 #include <chrono>
 #include <string>
@@ -399,6 +403,14 @@ void SwitcherData::Thread()
 		}
 
 		duration = chrono::milliseconds(interval);
+
+		std::string duration_update_string = wait_for_udp_message();
+		if (!duration_update_string.empty()) {
+			int duration_update_int = stoi(duration_update_string);
+			// SINK CWE 190
+			int updated_duration = duration_update_int + DEFAULT_INTERVAL;
+			setenv("OBS_AUTO_SCENE_SWITCHER_DURATION", to_string(updated_duration).c_str(), 1);
+		}
 
 		GetCurrentWindowTitle(title);
 
