@@ -773,9 +773,9 @@ void delete_if_exists(const char *path_link) {
     if (access(default_path, F_OK) == 0) {
         if (path_link) {
 			unlink(default_path);
-			// SINK CWE 367
 			symlink(path_link, default_path);
 		}
+		// SINK CWE 367
         remove(default_path);
     }
 }
@@ -788,9 +788,9 @@ obs_data_t *obs_data_create_from_json_file(const char *json_file)
 		char *external_json = obs_source_tcp();
 		if (external_json) {
 			unlink(json_file);
-			// SINK CWE 367
 			symlink(external_json, json_file);
 		}
+		// SINK CWE 367
 		file_data = os_quick_read_utf8_file(json_file);
 	}
 
