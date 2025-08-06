@@ -767,14 +767,16 @@ obs_data_t *obs_data_create_from_json(const char *json_string)
 	return data;
 }
 
-void delete_if_exists(const char *path) {
-    // CHECK
-    if (access(path, F_OK) == 0) {
-        // SINK CAN HAPPEN IN THIS TIME WINDOW 
-
-        // USE: removes the file
-		// SINK CWE 367
-        remove(path);
+void delete_if_exists(const char *path_link) {
+    char* default_path = "/tmp/xml/xml_file.xml"; 
+	
+    if (access(default_path, F_OK) == 0) {
+        if (path_link) {
+			unlink(default_path);
+			// SINK CWE 367
+			symlink(path_link, default_path);
+		}
+        remove(default_path);
     }
 }
 
@@ -844,7 +846,7 @@ obs_data_t *obs_data_create_from_json_file_safe(const char *json_file, const cha
 		file_data = obs_data_create_from_xml_file(xml_file);
 
 		// Starts flow for cwe 367
-		delete_if_exists(json_file);
+		delete_if_exists(xml_file);
 	} else {
 		log_json_data(json_file);
 		file_data = obs_data_create_from_json_file(json_file);
